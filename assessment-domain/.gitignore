@@ -21,10 +21,10 @@ tmp/**/*
 *.swp
 *~.nib
 local.properties
-.settings/
+#.settings/
 .loadpath
-.project
-.classpath
+#.project
+#.classpath
 
 # External tool builders
 .externalToolBuilders/

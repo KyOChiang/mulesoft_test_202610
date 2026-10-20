@@ -9,9 +9,9 @@
 **/.mule/
 
 # Studio / Eclipse project files (regenerated when the project is imported)
-**/.classpath
-**/.project
-**/.settings/
+#**/.classpath
+#**/.project
+#**/.settings/
 
 # Secrets: never commit these
 **/*.jks
@@ -21,11 +21,11 @@
 *.env
 
 # Runtime data created by the app
-data/output/
-data/error/
+#data/output/
+#data/error/
 
 # Submission and recordings
-submit/
+#submit/
 *.zip
 *.mp4
 
