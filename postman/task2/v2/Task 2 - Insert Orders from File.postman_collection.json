@@ -1,0 +1,1129 @@
+{
+  "info": {
+    "_postman_id": "61917e48-79e2-4285-bd1e-564f7bf66986",
+    "name": "Task 2 - Insert Orders from File",
+    "description": "POST /api/integration/insertOrders takes no body: it reads a CSV from the input folder. Postman cannot place files on disk, so before each request copy the fixture named in the request description into C:/mule-training/input/ (as orders.csv unless stated), send the request, then verify the DB tables and the input/output/error folders. Reset the tables between cases (see task2-test-plan.md). Run requests one at a time.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "50632837",
+    "_collection_link": "https://go.postman.co/collection/50632837-61917e48-79e2-4285-bd1e-564f7bf66986?source=collection_link"
+  },
+  "item": [
+    {
+      "name": "1 - Happy path",
+      "item": [
+        {
+          "name": "TC01 - Sample file processed",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));\npm.test(\"Content-Type is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\"));\npm.test(\"Body is exactly {message: File processed successfully}\", () => pm.expect(pm.response.json()).to.eql({ message: \"File processed successfully\" }));\npm.test(\"Response time < 5000 ms\", () => pm.expect(pm.response.responseTime).to.be.below(5000));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/integration/v1/insertOrders?filename=tc01_sample.csv",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "integration",
+                "v1",
+                "insertOrders"
+              ],
+              "query": [
+                {
+                  "key": "filename",
+                  "value": "tc01_sample.csv"
+                }
+              ]
+            },
+            "description": "**Stage:** copy `fixtures/tc01_sample.csv` to `C:/mule-training/input/orders.csv`\n\n**Expected HTTP:** 200\n\n**Verify manually:** 3 rows in `customer_orders` (AES45678, `AES4 5679`, AES45680); totals 1200 / 2500 / 5100 as numbers; timestamps ISO 8601 (2021-12-02T23:02:00, T09:11:00, T18:02:00); 0 rows in `order_errors`; file moved to `output/`; `file_audit_log` = SUCCESS"
+          },
+          "response": []
+        },
+        {
+          "name": "TC02 - CRLF line endings (Windows file)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));\npm.test(\"Content-Type is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\"));\npm.test(\"Body is exactly {message: File processed successfully}\", () => pm.expect(pm.response.json()).to.eql({ message: \"File processed successfully\" }));\npm.test(\"Response time < 5000 ms\", () => pm.expect(pm.response.responseTime).to.be.below(5000));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/integration/v1/insertOrders?filename=tc02_crlf.csv",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "integration",
+                "v1",
+                "insertOrders"
+              ],
+              "query": [
+                {
+                  "key": "filename",
+                  "value": "tc02_crlf.csv"
+                }
+              ]
+            },
+            "description": "**Stage:** copy `fixtures/tc02_crlf.csv` to `C:/mule-training/input/orders.csv`\n\n**Expected HTTP:** 200\n\n**Verify manually:** 3 rows (CRL0001-0003); `order_total` stored as 1200 / 2500 / 5100 with no trailing carriage return; file in `output/`; SUCCESS"
+          },
+          "response": []
+        },
+        {
+          "name": "TC03 - 1000-row file (loop under volume)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));\npm.test(\"Content-Type is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\"));\npm.test(\"Body is exactly {message: File processed successfully}\", () => pm.expect(pm.response.json()).to.eql({ message: \"File processed successfully\" }));\npm.test(\"Response time < 30000 ms\", () => pm.expect(pm.response.responseTime).to.be.below(30000));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/integration/v1/insertOrders?filename=tc03_bulk_1000.csv",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "integration",
+                "v1",
+                "insertOrders"
+              ],
+              "query": [
+                {
+                  "key": "filename",
+                  "value": "tc03_bulk_1000.csv"
+                }
+              ]
+            },
+            "description": "**Stage:** copy `fixtures/tc03_bulk_1000.csv` to `C:/mule-training/input/orders.csv`\n\n**Expected HTTP:** 200\n\n**Verify manually:** 1000 rows (BULK0001-BULK1000); 0 in `order_errors`; file in `output/`; exactly one SUCCESS audit row"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "2 - Cleansing",
+      "item": [
+        {
+          "name": "TC04 - Whitespace trimmed on all string fields",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));\npm.test(\"Content-Type is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\"));\npm.test(\"Body is exactly {message: File processed successfully}\", () => pm.expect(pm.response.json()).to.eql({ message: \"File processed successfully\" }));\npm.test(\"Response time < 5000 ms\", () => pm.expect(pm.response.responseTime).to.be.below(5000));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/integration/v1/insertOrders?filename=tc04_trim.csv",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "integration",
+                "v1",
+                "insertOrders"
+              ],
+              "query": [
+                {
+                  "key": "filename",
+                  "value": "tc04_trim.csv"
+                }
+              ]
+            },
+            "description": "**Stage:** copy `fixtures/tc04_trim.csv` to `C:/mule-training/input/orders.csv`\n\n**Expected HTTP:** 200\n\n**Verify manually:** 3 rows: `WSP0001`, `WSP0002`, `WSP 0003`; leading/trailing spaces and tabs removed from every field; the internal space in `WSP 0003` is kept; totals 1200 / 2500 / 5100 numeric; file in `output/`"
+          },
+          "response": []
+        },
+        {
+          "name": "TC05 - Timestamps converted to ISO 8601 (AM/PM edges)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));\npm.test(\"Content-Type is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\"));\npm.test(\"Body is exactly {message: File processed successfully}\", () => pm.expect(pm.response.json()).to.eql({ message: \"File processed successfully\" }));\npm.test(\"Response time < 5000 ms\", () => pm.expect(pm.response.responseTime).to.be.below(5000));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/integration/v1/insertOrders?filename=tc05_timestamps.csv",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "integration",
+                "v1",
+                "insertOrders"
+              ],
+              "query": [
+                {
+                  "key": "filename",
+                  "value": "tc05_timestamps.csv"
+                }
+              ]
+            },
+            "description": "**Stage:** copy `fixtures/tc05_timestamps.csv` to `C:/mule-training/input/orders.csv`\n\n**Expected HTTP:** 200\n\n**Verify manually:** 6 rows (TS0001-TS0006): 2021-12-02T00:00:00 (12:00 AM), 2021-12-02T12:00:00 (12:00 PM), 2021-12-02T23:59:59, 2021-12-02T01:05:00, 2021-12-31T23:00:00, 2024-02-29T08:30:00. Assumes MM/dd/yyyy - TS0005 (12/31) only parses month-first"
+          },
+          "response": []
+        },
+        {
+          "name": "TC06 - Totals parsed as numbers",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));\npm.test(\"Content-Type is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\"));\npm.test(\"Body is exactly {message: File processed successfully}\", () => pm.expect(pm.response.json()).to.eql({ message: \"File processed successfully\" }));\npm.test(\"Response time < 5000 ms\", () => pm.expect(pm.response.responseTime).to.be.below(5000));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/integration/v1/insertOrders?filename=tc06_totals.csv",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "integration",
+                "v1",
+                "insertOrders"
+              ],
+              "query": [
+                {
+                  "key": "filename",
+                  "value": "tc06_totals.csv"
+                }
+              ]
+            },
+            "description": "**Stage:** copy `fixtures/tc06_totals.csv` to `C:/mule-training/input/orders.csv`\n\n**Expected HTTP:** 200\n\n**Verify manually:** 5 rows (TOT0001-TOT0005); totals stored numerically: 1200, 1200.50, 0, 99999999.99, 2500.75 (last one had surrounding spaces); decimals not rounded or truncated"
+          },
+          "response": []
+        },
+        {
+          "name": "TC07 - Quoted comma, unicode, quote characters",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));\npm.test(\"Content-Type is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\"));\npm.test(\"Body is exactly {message: File processed successfully}\", () => pm.expect(pm.response.json()).to.eql({ message: \"File processed successfully\" }));\npm.test(\"Response time < 5000 ms\", () => pm.expect(pm.response.responseTime).to.be.below(5000));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/integration/v1/insertOrders?filename=tc07_special_chars.csv",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "integration",
+                "v1",
+                "insertOrders"
+              ],
+              "query": [
+                {
+                  "key": "filename",
+                  "value": "tc07_special_chars.csv"
+                }
+              ]
+            },
+            "description": "**Stage:** copy `fixtures/tc07_special_chars.csv` to `C:/mule-training/input/orders.csv`\n\n**Expected HTTP:** 200\n\n**Verify manually:** 4 rows stored literally: embedded comma kept in `Paid, pending`; Chinese text intact; doubled quotes unescaped to `Cancelled \"by user\"`; the `' OR '1'='1` value stored as plain text. A SQL error here means the insert builds SQL by concatenation (use parameters). Run on a local DB only"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "3 - Insert failures",
+      "item": [
+        {
+          "name": "TC08 - One bad record does not stop the loop",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));\npm.test(\"Content-Type is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\"));\npm.test(\"Body is exactly {message: File processed successfully}\", () => pm.expect(pm.response.json()).to.eql({ message: \"File processed successfully\" }));\npm.test(\"Response time < 5000 ms\", () => pm.expect(pm.response.responseTime).to.be.below(5000));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/integration/v1/insertOrders?filename=tc08_partial_failure.csv",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "integration",
+                "v1",
+                "insertOrders"
+              ],
+              "query": [
+                {
+                  "key": "filename",
+                  "value": "tc08_partial_failure.csv"
+                }
+              ]
+            },
+            "description": "**Stage:** copy `fixtures/tc08_partial_failure.csv` to `C:/mule-training/input/orders.csv`\n\n**Expected HTTP:** 200\n\n**Verify manually:** 3 rows inserted (PRT0001, PRT0003, PRT0005); 2 rows in `order_errors` (PRT0002: `order_status` is 26 chars but the column is varchar(20); PRT0004: `order_total` 99999999999 is out of range for decimal(10,2)); file in `output/`; SUCCESS"
+          },
+          "response": []
+        },
+        {
+          "name": "TC08B - Failed row whose user_id is too long for order_errors",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));\npm.test(\"Content-Type is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\"));\npm.test(\"Body is exactly {message: File processed successfully}\", () => pm.expect(pm.response.json()).to.eql({ message: \"File processed successfully\" }));\npm.test(\"Response time < 5000 ms\", () => pm.expect(pm.response.responseTime).to.be.below(5000));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/integration/v1/insertOrders?filename=tc08b_long_user_id.csv",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "integration",
+                "v1",
+                "insertOrders"
+              ],
+              "query": [
+                {
+                  "key": "filename",
+                  "value": "tc08b_long_user_id.csv"
+                }
+              ]
+            },
+            "description": "**Stage:** copy `fixtures/tc08b_long_user_id.csv` to `C:/mule-training/input/orders.csv`\n\n**Expected HTTP:** 200\n\n**Verify manually:** The 300-char `user_id` fails the insert AND would fail the `order_errors` insert (varchar(20)) unless truncated. Expect LUI0001 and LUI0003 inserted; 1 row in `order_errors` with `user_id` cut to 20 chars (or NULL) and the full error in `error_message`; the loop finishes; file in `output/`; SUCCESS"
+          },
+          "response": []
+        },
+        {
+          "name": "TC09 - [Assumed] All records fail - still 200 per spec",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));\npm.test(\"Content-Type is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\"));\npm.test(\"Body is exactly {message: File processed successfully}\", () => pm.expect(pm.response.json()).to.eql({ message: \"File processed successfully\" }));\npm.test(\"Response time < 5000 ms\", () => pm.expect(pm.response.responseTime).to.be.below(5000));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/integration/v1/insertOrders?filename=tc09_all_fail.csv",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "integration",
+                "v1",
+                "insertOrders"
+              ],
+              "query": [
+                {
+                  "key": "filename",
+                  "value": "tc09_all_fail.csv"
+                }
+              ]
+            },
+            "description": "**Stage:** copy `fixtures/tc09_all_fail.csv` to `C:/mule-training/input/orders.csv`\n\n**Expected HTTP:** 200\n\n**Verify manually:** 0 rows in `customer_orders`; 3 rows in `order_errors` (ALF0001-0003, status too long); file in `output/`; SUCCESS (literal reading of steps 5-8) - confirm this is intended"
+          },
+          "response": []
+        },
+        {
+          "name": "TC10 - [Not in spec] Non-numeric order_total",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is one of [200, 400]\", () => pm.expect(pm.response.code).to.be.oneOf([200, 400]));\npm.test(\"Response time < 5000 ms\", () => pm.expect(pm.response.responseTime).to.be.below(5000));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/integration/v1/insertOrders?filename=tc10_invalid_total.csv",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "integration",
+                "v1",
+                "insertOrders"
+              ],
+              "query": [
+                {
+                  "key": "filename",
+                  "value": "tc10_invalid_total.csv"
+                }
+              ]
+            },
+            "description": "**Stage:** copy `fixtures/tc10_invalid_total.csv` to `C:/mule-training/input/orders.csv`\n\n**Expected HTTP:** 200 or 400\n\n**Verify manually:** Cleansing failure, not an insert failure, so the spec is silent. Either 400 + file in `error/` + FAILED, or 200 with INV0002 in `order_errors` and INV0001 / INV0003 inserted. Agree which and tighten this assertion"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "4 - File validation (400)",
+      "item": [
+        {
+          "name": "NEG01 - Empty (0 byte) file",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 400\", () => pm.response.to.have.status(400));\npm.test(\"Body is not the success message\", () => { let b = null; try { b = pm.response.json(); } catch (e) {} pm.expect(b && b.message).to.not.eql(\"File processed successfully\"); });\npm.test(\"Response time < 5000 ms\", () => pm.expect(pm.response.responseTime).to.be.below(5000));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/integration/v1/insertOrders?filename=neg01_empty.csv",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "integration",
+                "v1",
+                "insertOrders"
+              ],
+              "query": [
+                {
+                  "key": "filename",
+                  "value": "neg01_empty.csv"
+                }
+              ]
+            },
+            "description": "**Stage:** copy `fixtures/neg01_empty.csv` to `C:/mule-training/input/orders.csv`\n\n**Expected HTTP:** 400\n\n**Verify manually:** 0 rows inserted; file moved to `error/`; `file_audit_log` = FAILED; nothing in `output/`"
+          },
+          "response": []
+        },
+        {
+          "name": "NEG02 - [Assumed] Header-only file counts as empty",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () {\n    pm.response.to.have.status(200);\n});\n\npm.test(\"Body contains success message\", function () {\n    var jsonData = pm.response.json();\n    pm.expect(jsonData.message).to.eql(\"File processed successfully\");\n});\n\npm.test(\"Response time < 5000 ms\", function () {\n    pm.expect(pm.response.responseTime).to.be.below(5000);\n});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/integration/v1/insertOrders?filename=neg02_header_only.csv",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "integration",
+                "v1",
+                "insertOrders"
+              ],
+              "query": [
+                {
+                  "key": "filename",
+                  "value": "neg02_header_only.csv"
+                }
+              ]
+            },
+            "description": "**Stage:** copy `fixtures/neg02_header_only.csv` to `C:/mule-training/input/orders.csv`\n\n**Expected HTTP:** 400\n\n**Verify manually:** Same as NEG01. Assumes a file with no data rows is \"empty\" - confirm"
+          },
+          "response": []
+        },
+        {
+          "name": "NEG03 - [Assumed] Whitespace-only file counts as empty",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () {\n    pm.response.to.have.status(200);\n});\n\npm.test(\"Body contains success message\", function () {\n    var jsonData = pm.response.json();\n    pm.expect(jsonData.message).to.eql(\"File processed successfully\");\n});\n\npm.test(\"Response time < 5000 ms\", function () {\n    pm.expect(pm.response.responseTime).to.be.below(5000);\n});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/integration/v1/insertOrders?filename=neg03_whitespace_only.csv",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "integration",
+                "v1",
+                "insertOrders"
+              ],
+              "query": [
+                {
+                  "key": "filename",
+                  "value": "neg03_whitespace_only.csv"
+                }
+              ]
+            },
+            "description": "**Stage:** copy `fixtures/neg03_whitespace_only.csv` to `C:/mule-training/input/orders.csv`\n\n**Expected HTTP:** 400\n\n**Verify manually:** Same as NEG01. Assumes no content after trimming is \"empty\" - confirm"
+          },
+          "response": []
+        },
+        {
+          "name": "NEG04 - File 1 byte over 5 MB",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 400\", () => pm.response.to.have.status(400));\npm.test(\"Body is not the success message\", () => { let b = null; try { b = pm.response.json(); } catch (e) {} pm.expect(b && b.message).to.not.eql(\"File processed successfully\"); });\npm.test(\"Response time < 30000 ms\", () => pm.expect(pm.response.responseTime).to.be.below(30000));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/integration/v1/insertOrders?filename=neg04_5mb_plus1.csv",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "integration",
+                "v1",
+                "insertOrders"
+              ],
+              "query": [
+                {
+                  "key": "filename",
+                  "value": "neg04_5mb_plus1.csv"
+                }
+              ]
+            },
+            "description": "**Stage:** copy `fixtures/neg04_5mb_plus1.csv` to `C:/mule-training/input/orders.csv`\n\n**Expected HTTP:** 400\n\n**Verify manually:** 5,242,881 bytes; 0 rows inserted; file moved to `error/`; FAILED"
+          },
+          "response": []
+        },
+        {
+          "name": "BVA01 - File 1 byte under 5 MB is accepted",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));\npm.test(\"Content-Type is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\"));\npm.test(\"Body is exactly {message: File processed successfully}\", () => pm.expect(pm.response.json()).to.eql({ message: \"File processed successfully\" }));\npm.test(\"Response time < 30000 ms\", () => pm.expect(pm.response.responseTime).to.be.below(30000));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/integration/v1/insertOrders?filename=bva01_5mb_minus1.csv",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "integration",
+                "v1",
+                "insertOrders"
+              ],
+              "query": [
+                {
+                  "key": "filename",
+                  "value": "bva01_5mb_minus1.csv"
+                }
+              ]
+            },
+            "description": "**Stage:** copy `fixtures/bva01_5mb_minus1.csv` to `C:/mule-training/input/orders.csv`\n\n**Expected HTTP:** 200\n\n**Verify manually:** 5,242,879 bytes; 3 rows inserted (BVM0001-0003); file in `output/`; SUCCESS"
+          },
+          "response": []
+        },
+        {
+          "name": "BVA02 - [Assumed] File of exactly 5 MB is accepted",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));\npm.test(\"Content-Type is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\"));\npm.test(\"Body is exactly {message: File processed successfully}\", () => pm.expect(pm.response.json()).to.eql({ message: \"File processed successfully\" }));\npm.test(\"Response time < 30000 ms\", () => pm.expect(pm.response.responseTime).to.be.below(30000));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/integration/v1/insertOrders?filename=bva02_5mb_exact.csv",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "integration",
+                "v1",
+                "insertOrders"
+              ],
+              "query": [
+                {
+                  "key": "filename",
+                  "value": "bva02_5mb_exact.csv"
+                }
+              ]
+            },
+            "description": "**Stage:** copy `fixtures/bva02_5mb_exact.csv` to `C:/mule-training/input/orders.csv`\n\n**Expected HTTP:** 200\n\n**Verify manually:** 5,242,880 bytes (5 x 1024 x 1024); only \"larger than\" 5 MB is rejected, so 3 rows inserted (BVE0001-0003); file in `output/`; SUCCESS. If the service uses 5,000,000 bytes this case will fail"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "5 - HTTP / routing",
+      "item": [
+        {
+          "name": "HTTP01 - [Assumed] GET not allowed",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is one of [405]\", () => pm.expect(pm.response.code).to.be.oneOf([405]));\npm.test(\"Response time < 5000 ms\", () => pm.expect(pm.response.responseTime).to.be.below(5000));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/integration/v1/insertOrders?filename=bva02_5mb_exact.csv",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "integration",
+                "v1",
+                "insertOrders"
+              ],
+              "query": [
+                {
+                  "key": "filename",
+                  "value": "bva02_5mb_exact.csv"
+                }
+              ]
+            },
+            "description": "**Pre-condition:** `input/` folder empty\n\n**Expected HTTP:** 405\n\n**Verify manually:** Nothing processed, no audit row. If the listener allows all methods the flow will run on GET - restrict `allowedMethods` to POST"
+          },
+          "response": []
+        },
+        {
+          "name": "HTTP02 - [Assumed] PUT not allowed",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is one of [405]\", () => pm.expect(pm.response.code).to.be.oneOf([405]));\npm.test(\"Response time < 5000 ms\", () => pm.expect(pm.response.responseTime).to.be.below(5000));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/integration/v1/insertOrders?filename=bva02_5mb_exact.csv",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "integration",
+                "v1",
+                "insertOrders"
+              ],
+              "query": [
+                {
+                  "key": "filename",
+                  "value": "bva02_5mb_exact.csv"
+                }
+              ]
+            },
+            "description": "**Pre-condition:** `input/` folder empty\n\n**Expected HTTP:** 405\n\n**Verify manually:** Same as HTTP01"
+          },
+          "response": []
+        },
+        {
+          "name": "HTTP03 - [Assumed] DELETE not allowed",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is one of [405]\", () => pm.expect(pm.response.code).to.be.oneOf([405]));\npm.test(\"Response time < 5000 ms\", () => pm.expect(pm.response.responseTime).to.be.below(5000));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/integration/v1/insertOrders?filename=bva02_5mb_exact.csv",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "integration",
+                "v1",
+                "insertOrders"
+              ],
+              "query": [
+                {
+                  "key": "filename",
+                  "value": "bva02_5mb_exact.csv"
+                }
+              ]
+            },
+            "description": "**Pre-condition:** `input/` folder empty\n\n**Expected HTTP:** 405\n\n**Verify manually:** Same as HTTP01"
+          },
+          "response": []
+        },
+        {
+          "name": "HTTP04 - Unknown path returns 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is one of [404]\", () => pm.expect(pm.response.code).to.be.oneOf([404]));",
+                  "pm.test(\"Response time < 5000 ms\", () => pm.expect(pm.response.responseTime).to.be.below(5000));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/integration/insertOrder",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "integration",
+                "insertOrder"
+              ]
+            },
+            "description": "**Pre-condition:** `input/` folder empty\n\n**Expected HTTP:** 404\n\n**Verify manually:** Nothing processed (note the missing trailing `s`)"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "6 - Not in spec (confirm expected behaviour)",
+      "item": [
+        {
+          "name": "UNK01 - No file in input folder",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Not a success (status is 4xx/5xx)\", () => pm.expect(pm.response.code).to.be.within(400, 599));\npm.test(\"Body is not the success message\", () => { let b = null; try { b = pm.response.json(); } catch (e) {} pm.expect(b && b.message).to.not.eql(\"File processed successfully\"); });\npm.test(\"Response time < 5000 ms\", () => pm.expect(pm.response.responseTime).to.be.below(5000));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/integration/v1/insertOrders?filename=random.csv",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "integration",
+                "v1",
+                "insertOrders"
+              ],
+              "query": [
+                {
+                  "key": "filename",
+                  "value": "random.csv"
+                }
+              ]
+            },
+            "description": "**Pre-condition:** `input/` folder empty (e.g. re-send right after a successful run)\n\n**Expected HTTP:** 4xx / 5xx\n\n**Verify manually:** Nothing inserted or moved. Expect a 4xx/5xx with a clear message; confirm whether `file_audit_log` should record FAILED"
+          },
+          "response": []
+        },
+        {
+          "name": "UNK02 - Non-CSV file (.txt) in input folder",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Not a success (status is 4xx/5xx)\", () => pm.expect(pm.response.code).to.be.within(400, 599));\npm.test(\"Body is not the success message\", () => { let b = null; try { b = pm.response.json(); } catch (e) {} pm.expect(b && b.message).to.not.eql(\"File processed successfully\"); });\npm.test(\"Response time < 5000 ms\", () => pm.expect(pm.response.responseTime).to.be.below(5000));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/integration/v1/insertOrders?filename=unk02_not_csv.txt",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "integration",
+                "v1",
+                "insertOrders"
+              ],
+              "query": [
+                {
+                  "key": "filename",
+                  "value": "unk02_not_csv.txt"
+                }
+              ]
+            },
+            "description": "**Stage:** copy `fixtures/unk02_not_csv.txt` to `C:/mule-training/input/orders.txt`\n\n**Expected HTTP:** 4xx / 5xx\n\n**Verify manually:** Spec says read a `.csv`; the .txt should not be processed. Confirm whether it goes to `error/`"
+          },
+          "response": []
+        },
+        {
+          "name": "UNK03 - Rows with missing / extra columns",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is one of [200, 400]\", () => pm.expect(pm.response.code).to.be.oneOf([200, 400]));\npm.test(\"Response time < 5000 ms\", () => pm.expect(pm.response.responseTime).to.be.below(5000));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/integration/v1/insertOrders?filename=unk03_missing_columns.csv",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "integration",
+                "v1",
+                "insertOrders"
+              ],
+              "query": [
+                {
+                  "key": "filename",
+                  "value": "unk03_missing_columns.csv"
+                }
+              ]
+            },
+            "description": "**Stage:** copy `fixtures/unk03_missing_columns.csv` to `C:/mule-training/input/orders.csv`\n\n**Expected HTTP:** 200 or 400\n\n**Verify manually:** Either 400 + file in `error/`, or 200 with MIS0001 and MIS0002 in `order_errors` and MIS0003 inserted. Agree which and tighten this assertion"
+          },
+          "response": []
+        },
+        {
+          "name": "UNK04 - UTF-8 BOM at start of file",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));\npm.test(\"Content-Type is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\"));\npm.test(\"Body is exactly {message: File processed successfully}\", () => pm.expect(pm.response.json()).to.eql({ message: \"File processed successfully\" }));\npm.test(\"Response time < 5000 ms\", () => pm.expect(pm.response.responseTime).to.be.below(5000));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/integration/v1/insertOrders?filename=unk04_bom.csv",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "integration",
+                "v1",
+                "insertOrders"
+              ],
+              "query": [
+                {
+                  "key": "filename",
+                  "value": "unk04_bom.csv"
+                }
+              ]
+            },
+            "description": "**Stage:** copy `fixtures/unk04_bom.csv` to `C:/mule-training/input/orders.csv`\n\n**Expected HTTP:** 200\n\n**Verify manually:** 3 rows (BOM0001-0003). The BOM must not corrupt the `user_id` header / first value"
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "https://127.0.0.1:8083"
+    },
+    {
+      "key": "inputDir",
+      "value": "C:/mule-training/input/"
+    },
+    {
+      "key": "outputDir",
+      "value": "C:/mule-training/output/"
+    },
+    {
+      "key": "errorDir",
+      "value": "C:/mule-training/error/"
+    }
+  ]
+}

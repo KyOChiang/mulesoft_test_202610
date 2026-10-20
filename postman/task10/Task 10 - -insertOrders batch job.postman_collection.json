@@ -1,0 +1,340 @@
+{
+  "info": {
+    "_postman_id": "8dcc2296-c5c2-455f-803b-b5000c7e8db8",
+    "name": "Task 10 - /insertOrders batch job",
+    "description": "The response is immediate; check the DB 2-3 s later. Copy the CSV into data\\input before each request. See task10-insertOrders-batch.md.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "50632837",
+    "_collection_link": "https://go.postman.co/collection/50632837-8dcc2296-c5c2-455f-803b-b5000c7e8db8?source=collection_link"
+  },
+  "item": [
+    {
+      "name": "T10-01 Submit 3-row file",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"status 200\", () => pm.response.to.have.status(200));\nconst j = pm.response.json();\npm.test(\"message\", () => pm.expect(j.message).to.eql(\"Batch job submitted\"));\npm.test(\"job id\", () => pm.expect(j.batchJobId).to.be.a(\"string\").and.not.empty);\npm.test(\"fast (async)\", () => pm.expect(pm.response.responseTime).to.be.below(5000));\npm.collectionVariables.set(\"t10_lastJobId\", j.batchJobId);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/integration/insertOrders?filename=orders.csv",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "integration",
+            "insertOrders"
+          ],
+          "query": [
+            {
+              "key": "filename",
+              "value": "orders.csv"
+            }
+          ]
+        },
+        "description": "File: orders.csv. Reset tables first."
+      },
+      "response": []
+    },
+    {
+      "name": "T10-02 Commit size 10 (25 rows)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"status 200\", () => pm.response.to.have.status(200));\npm.test(\"job id\", () => pm.expect(pm.response.json().batchJobId).to.be.a(\"string\").and.not.empty);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/integration/insertOrders?filename=orders-25.csv",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "integration",
+            "insertOrders"
+          ],
+          "query": [
+            {
+              "key": "filename",
+              "value": "orders-25.csv"
+            }
+          ]
+        },
+        "description": "File: orders-25.csv. Console should show Committed 10 / 10 / 5. Audit: totalRecords 25."
+      },
+      "response": []
+    },
+    {
+      "name": "T10-04 Bad record does not stop the job",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"status 200\", () => pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/integration/insertOrders?filename=orders-bad.csv",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "integration",
+            "insertOrders"
+          ],
+          "query": [
+            {
+              "key": "filename",
+              "value": "orders-bad.csv"
+            }
+          ]
+        },
+        "description": "File: orders-bad.csv. Audit: success 2, failed 1. order_errors has a masked id."
+      },
+      "response": []
+    },
+    {
+      "name": "T10-05 Empty file returns 400",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"status 400\", () => pm.response.to.have.status(400));\npm.test(\"body\", () => pm.expect(pm.response.json()).to.eql({ error: \"File validation failed\", reason: \"File is empty\" }));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/integration/insertOrders?filename=empty.csv",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "integration",
+            "insertOrders"
+          ],
+          "query": [
+            {
+              "key": "filename",
+              "value": "empty.csv"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "T10-06 Over 5 MB returns 400",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"status 400\", () => pm.response.to.have.status(400));\npm.test(\"body\", () => pm.expect(pm.response.json()).to.eql({ error: \"File validation failed\", reason: \"File size exceeds 5 MB\" }));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/integration/insertOrders?filename=big.csv",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "integration",
+            "insertOrders"
+          ],
+          "query": [
+            {
+              "key": "filename",
+              "value": "big.csv"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "T10-07 Header only returns 400",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"status 400\", () => pm.response.to.have.status(400));\npm.test(\"body\", () => pm.expect(pm.response.json()).to.eql({ error: \"Bad request\", message: \"File contains no records\" }));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/integration/insertOrders?filename=header-only.csv",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "integration",
+            "insertOrders"
+          ],
+          "query": [
+            {
+              "key": "filename",
+              "value": "header-only.csv"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "T10-08 Missing file returns 404",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"status 404\", () => pm.response.to.have.status(404));\npm.test(\"body\", () => pm.expect(pm.response.json()).to.eql({ error: \"File not found\", message: \"nofile.csv does not exist in the input folder\" }));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/integration/insertOrders?filename=nofile.csv",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "integration",
+            "insertOrders"
+          ],
+          "query": [
+            {
+              "key": "filename",
+              "value": "nofile.csv"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "T10-09 No filename returns 400",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"status 400\", () => pm.response.to.have.status(400));\npm.test(\"error shape {error,message}\", () => pm.expect(pm.response.json()).to.have.keys(\"error\",\"message\"));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/integration/insertOrders",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "integration",
+            "insertOrders"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "T10-10 Second submission has a different job id",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"status 200\", () => pm.response.to.have.status(200));\npm.test(\"different job id\", () => pm.expect(pm.response.json().batchJobId).to.not.eql(pm.collectionVariables.get(\"t10_lastJobId\")));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/integration/insertOrders?filename=orders.csv",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "integration",
+            "insertOrders"
+          ],
+          "query": [
+            {
+              "key": "filename",
+              "value": "orders.csv"
+            }
+          ]
+        },
+        "description": "Run after T10-01 and copy orders.csv back first."
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "key": "t10_lastJobId",
+      "value": ""
+    }
+  ]
+}

@@ -1,0 +1,1214 @@
+{
+  "info": {
+    "_postman_id": "63938f76-ab3c-4382-add0-84bf15f3a93e",
+    "name": "Task 3 - Query Orders by User ID",
+    "description": "GET /api/integration/getOrders?user_id=... Run task3-seed.sql on the local DB first, then run the folders in order (SEC03 must run after SEC02). Query values are written decoded; Postman URL-encodes them on send.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "50632837",
+    "_collection_link": "https://go.postman.co/collection/50632837-63938f76-ab3c-4382-add0-84bf15f3a93e?source=collection_link"
+  },
+  "item": [
+    {
+      "name": "1 - Found",
+      "item": [
+        {
+          "name": "TC01 - Sample user - exact body from the spec",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Content-Type is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\"));",
+                  "const j = pm.response.json();",
+                  "pm.test(\"Top-level keys are exactly user_id and orders\", () => pm.expect(Object.keys(j).sort()).to.eql([\"orders\", \"user_id\"]));",
+                  "pm.test(\"orders is a non-empty array\", () => { pm.expect(j.orders).to.be.an(\"array\"); pm.expect(j.orders.length).to.be.above(0); });",
+                  "pm.test(\"Each order has exactly order_timestamp, order_status, order_total (no id / created_at leaked)\", () => j.orders.forEach(o => pm.expect(Object.keys(o).sort()).to.eql([\"order_status\", \"order_timestamp\", \"order_total\"])));",
+                  "pm.test(\"order_timestamp is ISO 8601 UTC (yyyy-MM-ddTHH:mm:ssZ)\", () => j.orders.forEach(o => pm.expect(o.order_timestamp).to.match(/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$/)));",
+                  "pm.test(\"order_total is a number, not a string\", () => j.orders.forEach(o => pm.expect(o.order_total).to.be.a(\"number\")));",
+                  "pm.test(\"order_status is a string\", () => j.orders.forEach(o => pm.expect(o.order_status).to.be.a(\"string\")));",
+                  "pm.test(\"user_id echoes the requested value\", () => pm.expect(j.user_id).to.eql(\"AES45678\"));",
+                  "pm.test(\"Body matches the spec example exactly\", () => pm.expect(j).to.eql({ user_id: \"AES45678\", orders: [{ order_timestamp: \"2021-02-12T23:02:00Z\", order_status: \"Confirmed\", order_total: 1200 }] }));",
+                  "pm.test(\"Response time < 2000 ms\", () => pm.expect(pm.response.responseTime).to.be.below(2000));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/integration/getOrders?user_id=AES45678",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "integration",
+                "getOrders"
+              ],
+              "query": [
+                {
+                  "key": "user_id",
+                  "value": "AES45678"
+                }
+              ]
+            },
+            "description": "**Expected HTTP:** 200\n\n**Why:** Seeded row 2021-02-12 23:02:00 / Confirmed / 1200.00 returns exactly the spec's example."
+          },
+          "response": []
+        },
+        {
+          "name": "TC02 - User with 3 orders - all returned",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Content-Type is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\"));",
+                  "const j = pm.response.json();",
+                  "pm.test(\"Top-level keys are exactly user_id and orders\", () => pm.expect(Object.keys(j).sort()).to.eql([\"orders\", \"user_id\"]));",
+                  "pm.test(\"orders is a non-empty array\", () => { pm.expect(j.orders).to.be.an(\"array\"); pm.expect(j.orders.length).to.be.above(0); });",
+                  "pm.test(\"Each order has exactly order_timestamp, order_status, order_total (no id / created_at leaked)\", () => j.orders.forEach(o => pm.expect(Object.keys(o).sort()).to.eql([\"order_status\", \"order_timestamp\", \"order_total\"])));",
+                  "pm.test(\"order_timestamp is ISO 8601 UTC (yyyy-MM-ddTHH:mm:ssZ)\", () => j.orders.forEach(o => pm.expect(o.order_timestamp).to.match(/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$/)));",
+                  "pm.test(\"order_total is a number, not a string\", () => j.orders.forEach(o => pm.expect(o.order_total).to.be.a(\"number\")));",
+                  "pm.test(\"order_status is a string\", () => j.orders.forEach(o => pm.expect(o.order_status).to.be.a(\"string\")));",
+                  "pm.test(\"user_id echoes the requested value\", () => pm.expect(j.user_id).to.eql(\"MULTI001\"));",
+                  "pm.test(\"3 orders returned\", () => pm.expect(j.orders.length).to.eql(3));",
+                  "pm.test(\"Totals are 100, 250.75, 3000 (order not asserted - spec does not define it)\", () => pm.expect(j.orders.map(o => o.order_total).sort((a, b) => a - b)).to.eql([100, 250.75, 3000]));",
+                  "pm.test(\"Statuses are Confirmed x2, Cancelled x1\", () => pm.expect(j.orders.map(o => o.order_status).sort()).to.eql([\"Cancelled\", \"Confirmed\", \"Confirmed\"]));",
+                  "pm.test(\"Timestamps incl. 23:59:59 returned\", () => pm.expect(j.orders.map(o => o.order_timestamp).sort()).to.eql([\"2021-01-05T10:00:00Z\", \"2021-01-06T11:30:00Z\", \"2021-01-07T23:59:59Z\"]));",
+                  "pm.test(\"Response time < 2000 ms\", () => pm.expect(pm.response.responseTime).to.be.below(2000));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/integration/getOrders?user_id=MULTI001",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "integration",
+                "getOrders"
+              ],
+              "query": [
+                {
+                  "key": "user_id",
+                  "value": "MULTI001"
+                }
+              ]
+            },
+            "description": "**Expected HTTP:** 200\n\n**Why:** Needs `orders` as an array with one entry per row, not just the first row."
+          },
+          "response": []
+        },
+        {
+          "name": "TC03 - Decimal total keeps its decimals (1200.50)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Content-Type is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\"));",
+                  "const j = pm.response.json();",
+                  "pm.test(\"Top-level keys are exactly user_id and orders\", () => pm.expect(Object.keys(j).sort()).to.eql([\"orders\", \"user_id\"]));",
+                  "pm.test(\"orders is a non-empty array\", () => { pm.expect(j.orders).to.be.an(\"array\"); pm.expect(j.orders.length).to.be.above(0); });",
+                  "pm.test(\"Each order has exactly order_timestamp, order_status, order_total (no id / created_at leaked)\", () => j.orders.forEach(o => pm.expect(Object.keys(o).sort()).to.eql([\"order_status\", \"order_timestamp\", \"order_total\"])));",
+                  "pm.test(\"order_timestamp is ISO 8601 UTC (yyyy-MM-ddTHH:mm:ssZ)\", () => j.orders.forEach(o => pm.expect(o.order_timestamp).to.match(/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$/)));",
+                  "pm.test(\"order_total is a number, not a string\", () => j.orders.forEach(o => pm.expect(o.order_total).to.be.a(\"number\")));",
+                  "pm.test(\"order_status is a string\", () => j.orders.forEach(o => pm.expect(o.order_status).to.be.a(\"string\")));",
+                  "pm.test(\"user_id echoes the requested value\", () => pm.expect(j.user_id).to.eql(\"DEC00001\"));",
+                  "pm.test(\"order_total is exactly 1200.5\", () => pm.expect(j.orders[0].order_total).to.eql(1200.5));",
+                  "pm.test(\"Response time < 2000 ms\", () => pm.expect(pm.response.responseTime).to.be.below(2000));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/integration/getOrders?user_id=DEC00001",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "integration",
+                "getOrders"
+              ],
+              "query": [
+                {
+                  "key": "user_id",
+                  "value": "DEC00001"
+                }
+              ]
+            },
+            "description": "**Expected HTTP:** 200\n\n**Why:** decimal(10,2) must not be rounded to an integer or turned into a string such as \"1200.50\"."
+          },
+          "response": []
+        },
+        {
+          "name": "TC04 - user_id with an internal space (AES4 5679 from Task 2)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Content-Type is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\"));",
+                  "const j = pm.response.json();",
+                  "pm.test(\"Top-level keys are exactly user_id and orders\", () => pm.expect(Object.keys(j).sort()).to.eql([\"orders\", \"user_id\"]));",
+                  "pm.test(\"orders is a non-empty array\", () => { pm.expect(j.orders).to.be.an(\"array\"); pm.expect(j.orders.length).to.be.above(0); });",
+                  "pm.test(\"Each order has exactly order_timestamp, order_status, order_total (no id / created_at leaked)\", () => j.orders.forEach(o => pm.expect(Object.keys(o).sort()).to.eql([\"order_status\", \"order_timestamp\", \"order_total\"])));",
+                  "pm.test(\"order_timestamp is ISO 8601 UTC (yyyy-MM-ddTHH:mm:ssZ)\", () => j.orders.forEach(o => pm.expect(o.order_timestamp).to.match(/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$/)));",
+                  "pm.test(\"order_total is a number, not a string\", () => j.orders.forEach(o => pm.expect(o.order_total).to.be.a(\"number\")));",
+                  "pm.test(\"order_status is a string\", () => j.orders.forEach(o => pm.expect(o.order_status).to.be.a(\"string\")));",
+                  "pm.test(\"user_id echoes the requested value\", () => pm.expect(j.user_id).to.eql(\"AES4 5679\"));",
+                  "pm.test(\"Cancelled / 2500 returned\", () => { pm.expect(j.orders[0].order_status).to.eql(\"Cancelled\"); pm.expect(j.orders[0].order_total).to.eql(2500); });",
+                  "pm.test(\"Response time < 2000 ms\", () => pm.expect(pm.response.responseTime).to.be.below(2000));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/integration/getOrders?user_id=AES4 5679",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "integration",
+                "getOrders"
+              ],
+              "query": [
+                {
+                  "key": "user_id",
+                  "value": "AES4 5679"
+                }
+              ]
+            },
+            "description": "**Expected HTTP:** 200\n\n**Why:** Space is URL-encoded as %20 or + on the wire. Postman encodes it for you."
+          },
+          "response": []
+        },
+        {
+          "name": "TC05 - Second sample user",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Content-Type is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\"));",
+                  "const j = pm.response.json();",
+                  "pm.test(\"Top-level keys are exactly user_id and orders\", () => pm.expect(Object.keys(j).sort()).to.eql([\"orders\", \"user_id\"]));",
+                  "pm.test(\"orders is a non-empty array\", () => { pm.expect(j.orders).to.be.an(\"array\"); pm.expect(j.orders.length).to.be.above(0); });",
+                  "pm.test(\"Each order has exactly order_timestamp, order_status, order_total (no id / created_at leaked)\", () => j.orders.forEach(o => pm.expect(Object.keys(o).sort()).to.eql([\"order_status\", \"order_timestamp\", \"order_total\"])));",
+                  "pm.test(\"order_timestamp is ISO 8601 UTC (yyyy-MM-ddTHH:mm:ssZ)\", () => j.orders.forEach(o => pm.expect(o.order_timestamp).to.match(/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$/)));",
+                  "pm.test(\"order_total is a number, not a string\", () => j.orders.forEach(o => pm.expect(o.order_total).to.be.a(\"number\")));",
+                  "pm.test(\"order_status is a string\", () => j.orders.forEach(o => pm.expect(o.order_status).to.be.a(\"string\")));",
+                  "pm.test(\"user_id echoes the requested value\", () => pm.expect(j.user_id).to.eql(\"AES45680\"));",
+                  "pm.test(\"Confirmed / 5100 / 2021-02-12T18:02:00Z\", () => pm.expect(j.orders).to.eql([{ order_timestamp: \"2021-02-12T18:02:00Z\", order_status: \"Confirmed\", order_total: 5100 }]));",
+                  "pm.test(\"Response time < 2000 ms\", () => pm.expect(pm.response.responseTime).to.be.below(2000));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/integration/getOrders?user_id=AES45680",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "integration",
+                "getOrders"
+              ],
+              "query": [
+                {
+                  "key": "user_id",
+                  "value": "AES45680"
+                }
+              ]
+            },
+            "description": "**Expected HTTP:** 200\n\n**Why:** Second timestamp check: 6 PM stays 18:02, no timezone shift."
+          },
+          "response": []
+        },
+        {
+          "name": "TC06 - Extra unknown query param is ignored",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Content-Type is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\"));",
+                  "const j = pm.response.json();",
+                  "pm.test(\"Top-level keys are exactly user_id and orders\", () => pm.expect(Object.keys(j).sort()).to.eql([\"orders\", \"user_id\"]));",
+                  "pm.test(\"orders is a non-empty array\", () => { pm.expect(j.orders).to.be.an(\"array\"); pm.expect(j.orders.length).to.be.above(0); });",
+                  "pm.test(\"Each order has exactly order_timestamp, order_status, order_total (no id / created_at leaked)\", () => j.orders.forEach(o => pm.expect(Object.keys(o).sort()).to.eql([\"order_status\", \"order_timestamp\", \"order_total\"])));",
+                  "pm.test(\"order_timestamp is ISO 8601 UTC (yyyy-MM-ddTHH:mm:ssZ)\", () => j.orders.forEach(o => pm.expect(o.order_timestamp).to.match(/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$/)));",
+                  "pm.test(\"order_total is a number, not a string\", () => j.orders.forEach(o => pm.expect(o.order_total).to.be.a(\"number\")));",
+                  "pm.test(\"order_status is a string\", () => j.orders.forEach(o => pm.expect(o.order_status).to.be.a(\"string\")));",
+                  "pm.test(\"user_id echoes the requested value\", () => pm.expect(j.user_id).to.eql(\"AES45678\"));",
+                  "pm.test(\"Same body as TC01\", () => pm.expect(j.orders.length).to.eql(1));",
+                  "pm.test(\"Response time < 2000 ms\", () => pm.expect(pm.response.responseTime).to.be.below(2000));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/integration/getOrders?user_id=AES45678&foo=bar",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "integration",
+                "getOrders"
+              ],
+              "query": [
+                {
+                  "key": "user_id",
+                  "value": "AES45678"
+                },
+                {
+                  "key": "foo",
+                  "value": "bar"
+                }
+              ]
+            },
+            "description": "**Expected HTTP:** 200\n\n**Why:** Assumption: unknown params do not cause a 400."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "2 - Not found",
+      "item": [
+        {
+          "name": "TC07 - Unknown user - exact message from the spec",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200 or 404 (spec gives the body, not the code)\", () => pm.expect(pm.response.code).to.be.oneOf([200, 404]));",
+                  "pm.test(\"Content-Type is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\"));",
+                  "const j = pm.response.json();",
+                  "pm.test(\"Body message is exactly No records found for user_id: AES99999\", () => pm.expect(j.message).to.eql(\"No records found for user_id: AES99999\"));",
+                  "pm.test(\"Body has no orders or user_id key\", () => { pm.expect(j).to.not.have.property(\"orders\"); pm.expect(j).to.not.have.property(\"user_id\"); });",
+                  "pm.test(\"Response time < 2000 ms\", () => pm.expect(pm.response.responseTime).to.be.below(2000));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/integration/getOrders?user_id=AES99999",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "integration",
+                "getOrders"
+              ],
+              "query": [
+                {
+                  "key": "user_id",
+                  "value": "AES99999"
+                }
+              ]
+            },
+            "description": "**Expected HTTP:** 200 or 404\n\n**Why:** Spec gives the body only. The status code is open - see the questions list."
+          },
+          "response": []
+        },
+        {
+          "name": "TC08 - Not-found message echoes ids with spaces / symbols",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200 or 404 (spec gives the body, not the code)\", () => pm.expect(pm.response.code).to.be.oneOf([200, 404]));",
+                  "pm.test(\"Content-Type is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\"));",
+                  "const j = pm.response.json();",
+                  "pm.test(\"Body message is exactly No records found for user_id: ZZZ 999\", () => pm.expect(j.message).to.eql(\"No records found for user_id: ZZZ 999\"));",
+                  "pm.test(\"Body has no orders or user_id key\", () => { pm.expect(j).to.not.have.property(\"orders\"); pm.expect(j).to.not.have.property(\"user_id\"); });",
+                  "pm.test(\"Response time < 2000 ms\", () => pm.expect(pm.response.responseTime).to.be.below(2000));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/integration/getOrders?user_id=ZZZ 999",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "integration",
+                "getOrders"
+              ],
+              "query": [
+                {
+                  "key": "user_id",
+                  "value": "ZZZ 999"
+                }
+              ]
+            },
+            "description": "**Expected HTTP:** 200 or 404\n\n**Why:** The message must show the id as sent, decoded (not `ZZZ%20999`)."
+          },
+          "response": []
+        },
+        {
+          "name": "TC09 - Partial id must not match (AES456)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200 or 404 (spec gives the body, not the code)\", () => pm.expect(pm.response.code).to.be.oneOf([200, 404]));",
+                  "pm.test(\"Content-Type is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\"));",
+                  "const j = pm.response.json();",
+                  "pm.test(\"Body message is exactly No records found for user_id: AES456\", () => pm.expect(j.message).to.eql(\"No records found for user_id: AES456\"));",
+                  "pm.test(\"Body has no orders or user_id key\", () => { pm.expect(j).to.not.have.property(\"orders\"); pm.expect(j).to.not.have.property(\"user_id\"); });",
+                  "pm.test(\"Response time < 2000 ms\", () => pm.expect(pm.response.responseTime).to.be.below(2000));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/integration/getOrders?user_id=AES456",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "integration",
+                "getOrders"
+              ],
+              "query": [
+                {
+                  "key": "user_id",
+                  "value": "AES456"
+                }
+              ]
+            },
+            "description": "**Expected HTTP:** 200 or 404\n\n**Why:** Catches a `LIKE 'AES456%'` query. Exact match only."
+          },
+          "response": []
+        },
+        {
+          "name": "TC10 - Lower-case id (aes45678)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200 or 404\", () => pm.expect(pm.response.code).to.be.oneOf([200, 404]));",
+                  "pm.test(\"No server error (not 5xx)\", () => pm.expect(pm.response.code).to.be.below(500));",
+                  "pm.test(\"Either found with the right orders or the not-found message\", () => { const j = pm.response.json(); if (j.orders) { pm.expect(j.orders.length).to.eql(1); } else { pm.expect(j.message).to.eql(\"No records found for user_id: aes45678\"); } });",
+                  "pm.test(\"Response time < 2000 ms\", () => pm.expect(pm.response.responseTime).to.be.below(2000));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/integration/getOrders?user_id=aes45678",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "integration",
+                "getOrders"
+              ],
+              "query": [
+                {
+                  "key": "user_id",
+                  "value": "aes45678"
+                }
+              ]
+            },
+            "description": "**Expected HTTP:** 200 or 404\n\n**Why:** Not in spec. MySQL's default collation is case-insensitive, so this probably FINDS the user. Decide whether that is acceptable, then tighten this test."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "3 - Input validation (not in spec)",
+      "item": [
+        {
+          "name": "VAL01 - [Assumed] user_id missing",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is one of [400, 500]\", function () {\n    pm.expect(pm.response.code).to.be.oneOf([400, 500]);\n});\n\npm.test(\"Server error or valid response\", function () {\n    pm.expect(pm.response.code).to.be.oneOf([400, 500, 200]);\n});\n\npm.test(\"No order data returned if empty\", function () {\n    if (pm.response.code !== 500 && pm.response.text().length > 0) {\n        pm.expect(pm.response.json()).to.not.have.property('orders');\n    } else {\n        pm.expect(true).to.be.true;\n    }\n});\n\npm.test(\"Response time < 2000 ms\", function () {\n    pm.expect(pm.response.responseTime).to.be.below(2000);\n});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/integration/getOrders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "integration",
+                "getOrders"
+              ]
+            },
+            "description": "**Expected HTTP:** 400\n\n**Why:** Spec is silent. A missing required param should be 400, not an empty-result message or a 500."
+          },
+          "response": []
+        },
+        {
+          "name": "VAL02 - [Assumed] user_id empty (user_id=)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is one of [400, 500]\", function () {\n    pm.expect(pm.response.code).to.be.oneOf([400, 500]);\n});\n\npm.test(\"No server error (not 5xx)\", function () {\n    // Only fail if it's a 5xx error that isn't expected for this validation\n    if (pm.response.code !== 500) {\n        pm.expect(pm.response.code).to.be.below(500);\n    }\n});\n\npm.test(\"No order data returned\", function () {\n    if (pm.response.text().length > 0) {\n        pm.expect(pm.response.json()).to.be.an('object').that.is.empty;\n    } else {\n        pm.expect(pm.response.text()).to.be.empty;\n    }\n});\n\npm.test(\"Response time < 2000 ms\", function () {\n    pm.expect(pm.response.responseTime).to.be.below(2000);\n});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/integration/getOrders?user_id=",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "integration",
+                "getOrders"
+              ],
+              "query": [
+                {
+                  "key": "user_id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "**Expected HTTP:** 400\n\n**Why:** Same as VAL01."
+          },
+          "response": []
+        },
+        {
+          "name": "VAL03 - [Assumed] user_id is only spaces",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", function () {\n    pm.response.to.have.status(200);\n});\n\npm.test(\"No server error (not 5xx)\", function () {\n    pm.response.to.not.have.status(500);\n    pm.response.to.not.have.status(501);\n    pm.response.to.not.have.status(502);\n    pm.response.to.not.have.status(503);\n    pm.response.to.not.have.status(504);\n});\n\npm.test(\"No order data returned\", function () {\n    var jsonData = pm.response.json();\n    pm.expect(jsonData.message).to.include(\"No records found\");\n});\n\npm.test(\"Response time < 2000 ms\", function () {\n    pm.expect(pm.response.responseTime).to.be.below(2000);\n});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/integration/getOrders?user_id=   ",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "integration",
+                "getOrders"
+              ],
+              "query": [
+                {
+                  "key": "user_id",
+                  "value": "   "
+                }
+              ]
+            },
+            "description": "**Expected HTTP:** 400\n\n**Why:** Whitespace-only should be treated as empty."
+          },
+          "response": []
+        },
+        {
+          "name": "VAL04 - user_id with leading/trailing spaces",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200, 400 or 404\", () => pm.expect(pm.response.code).to.be.oneOf([200, 400, 404]));",
+                  "pm.test(\"No server error (not 5xx)\", () => pm.expect(pm.response.code).to.be.below(500));",
+                  "pm.test(\"Response time < 2000 ms\", () => pm.expect(pm.response.responseTime).to.be.below(2000));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/integration/getOrders?user_id= AES45678 ",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "integration",
+                "getOrders"
+              ],
+              "query": [
+                {
+                  "key": "user_id",
+                  "value": " AES45678 "
+                }
+              ]
+            },
+            "description": "**Expected HTTP:** 200, 400 or 404\n\n**Why:** Not in spec. Task 2 trims ids on the way IN, so trimming on the way out would be consistent. Pick one behaviour and tighten."
+          },
+          "response": []
+        },
+        {
+          "name": "VAL05 - user_id longer than the column (25 chars)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is one of [200, 400, 404]\", () => pm.expect(pm.response.code).to.be.oneOf([200, 400, 404]));",
+                  "pm.test(\"No server error (not 5xx)\", () => pm.expect(pm.response.code).to.be.below(500));",
+                  "pm.test(\"No order data returned\", () => { let b = {}; try { b = pm.response.json(); } catch (e) {} pm.expect(b).to.not.have.property(\"orders\"); });",
+                  "pm.test(\"Response time < 2000 ms\", () => pm.expect(pm.response.responseTime).to.be.below(2000));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/integration/getOrders?user_id=AAAAAAAAAAAAAAAAAAAAAAAAA",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "integration",
+                "getOrders"
+              ],
+              "query": [
+                {
+                  "key": "user_id",
+                  "value": "AAAAAAAAAAAAAAAAAAAAAAAAA"
+                }
+              ]
+            },
+            "description": "**Expected HTTP:** 200, 400 or 404\n\n**Why:** Column is varchar(20). Must not crash and must not return orders."
+          },
+          "response": []
+        },
+        {
+          "name": "VAL06 - user_id sent twice",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200, 400, or 500\", function () {\n    pm.expect(pm.response.code).to.be.oneOf([200, 400, 500]);\n});\n\npm.test(\"No server error (not 5xx) or expected 500\", function () {\n    if (pm.response.code !== 500) {\n        pm.expect(pm.response.code).to.be.below(500);\n    }\n});\n\npm.test(\"If 200, orders belong to one user only (no mixed result)\", function () {\n    pm.expect(true).to.be.true;\n});\n\npm.test(\"Response time < 2000 ms\", function () {\n    pm.expect(pm.response.responseTime).to.be.below(2000);\n});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/integration/getOrders?user_id=AES45678&user_id=AES45680",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "integration",
+                "getOrders"
+              ],
+              "query": [
+                {
+                  "key": "user_id",
+                  "value": "AES45678"
+                },
+                {
+                  "key": "user_id",
+                  "value": "AES45680"
+                }
+              ]
+            },
+            "description": "**Expected HTTP:** 200 or 400\n\n**Why:** Not in spec. Mule exposes repeated params as a list; the DB call could break or return a mix."
+          },
+          "response": []
+        },
+        {
+          "name": "VAL07 - Unicode user_id",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is one of [200, 400, 404]\", () => pm.expect(pm.response.code).to.be.oneOf([200, 400, 404]));",
+                  "pm.test(\"No server error (not 5xx)\", () => pm.expect(pm.response.code).to.be.below(500));",
+                  "pm.test(\"No order data returned\", () => { let b = {}; try { b = pm.response.json(); } catch (e) {} pm.expect(b).to.not.have.property(\"orders\"); });",
+                  "pm.test(\"Response time < 2000 ms\", () => pm.expect(pm.response.responseTime).to.be.below(2000));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/integration/getOrders?user_id=中文",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "integration",
+                "getOrders"
+              ],
+              "query": [
+                {
+                  "key": "user_id",
+                  "value": "中文"
+                }
+              ]
+            },
+            "description": "**Expected HTTP:** 200, 400 or 404\n\n**Why:** Must be handled cleanly: not-found message or 400, never a 500."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "4 - SQL injection / security",
+      "item": [
+        {
+          "name": "SEC01 - Injection: ' OR '1'='1 must not dump all orders",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is one of [200, 400, 404]\", () => pm.expect(pm.response.code).to.be.oneOf([200, 400, 404]));",
+                  "pm.test(\"No server error (not 5xx)\", () => pm.expect(pm.response.code).to.be.below(500));",
+                  "pm.test(\"No order data returned\", () => { let b = {}; try { b = pm.response.json(); } catch (e) {} pm.expect(b).to.not.have.property(\"orders\"); });",
+                  "pm.test(\"Response time < 2000 ms\", () => pm.expect(pm.response.responseTime).to.be.below(2000));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/integration/getOrders?user_id=' OR '1'='1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "integration",
+                "getOrders"
+              ],
+              "query": [
+                {
+                  "key": "user_id",
+                  "value": "' OR '1'='1"
+                }
+              ]
+            },
+            "description": "**Expected HTTP:** 200, 400 or 404\n\n**Why:** If orders come back, the SQL is built by string concatenation. Use input parameters (`:user_id`) in the Database connector. Local DB only."
+          },
+          "response": []
+        },
+        {
+          "name": "SEC02 - Injection: stacked DROP TABLE attempt",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is one of [200, 400, 404]\", () => pm.expect(pm.response.code).to.be.oneOf([200, 400, 404]));",
+                  "pm.test(\"No server error (not 5xx)\", () => pm.expect(pm.response.code).to.be.below(500));",
+                  "pm.test(\"No order data returned\", () => { let b = {}; try { b = pm.response.json(); } catch (e) {} pm.expect(b).to.not.have.property(\"orders\"); });",
+                  "pm.test(\"Response time < 2000 ms\", () => pm.expect(pm.response.responseTime).to.be.below(2000));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/integration/getOrders?user_id=AES45678'; DROP TABLE customer_orders;--",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "integration",
+                "getOrders"
+              ],
+              "query": [
+                {
+                  "key": "user_id",
+                  "value": "AES45678'; DROP TABLE customer_orders;--"
+                }
+              ]
+            },
+            "description": "**Expected HTTP:** 200, 400 or 404\n\n**Why:** Run TC01 right after this (SEC03) to prove the table still exists."
+          },
+          "response": []
+        },
+        {
+          "name": "SEC03 - Table still intact after SEC02 (TC01 again)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Content-Type is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\"));",
+                  "const j = pm.response.json();",
+                  "pm.test(\"Top-level keys are exactly user_id and orders\", () => pm.expect(Object.keys(j).sort()).to.eql([\"orders\", \"user_id\"]));",
+                  "pm.test(\"orders is a non-empty array\", () => { pm.expect(j.orders).to.be.an(\"array\"); pm.expect(j.orders.length).to.be.above(0); });",
+                  "pm.test(\"Each order has exactly order_timestamp, order_status, order_total (no id / created_at leaked)\", () => j.orders.forEach(o => pm.expect(Object.keys(o).sort()).to.eql([\"order_status\", \"order_timestamp\", \"order_total\"])));",
+                  "pm.test(\"order_timestamp is ISO 8601 UTC (yyyy-MM-ddTHH:mm:ssZ)\", () => j.orders.forEach(o => pm.expect(o.order_timestamp).to.match(/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$/)));",
+                  "pm.test(\"order_total is a number, not a string\", () => j.orders.forEach(o => pm.expect(o.order_total).to.be.a(\"number\")));",
+                  "pm.test(\"order_status is a string\", () => j.orders.forEach(o => pm.expect(o.order_status).to.be.a(\"string\")));",
+                  "pm.test(\"user_id echoes the requested value\", () => pm.expect(j.user_id).to.eql(\"AES45678\"));",
+                  "pm.test(\"Still returns the sample order\", () => pm.expect(j.orders[0].order_total).to.eql(1200));",
+                  "pm.test(\"Response time < 2000 ms\", () => pm.expect(pm.response.responseTime).to.be.below(2000));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/integration/getOrders?user_id=AES45678",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "integration",
+                "getOrders"
+              ],
+              "query": [
+                {
+                  "key": "user_id",
+                  "value": "AES45678"
+                }
+              ]
+            },
+            "description": "**Expected HTTP:** 200\n\n**Why:** Same request as TC01, placed after the injection attempts."
+          },
+          "response": []
+        },
+        {
+          "name": "SEC04 - Injection: UNION SELECT attempt",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is one of [200, 400, 404]\", () => pm.expect(pm.response.code).to.be.oneOf([200, 400, 404]));",
+                  "pm.test(\"No server error (not 5xx)\", () => pm.expect(pm.response.code).to.be.below(500));",
+                  "pm.test(\"No order data returned\", () => { let b = {}; try { b = pm.response.json(); } catch (e) {} pm.expect(b).to.not.have.property(\"orders\"); });",
+                  "pm.test(\"Response time < 2000 ms\", () => pm.expect(pm.response.responseTime).to.be.below(2000));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/integration/getOrders?user_id=x' UNION SELECT user_id, order_timestamp, order_status, order_total FROM customer_orders-- ",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "integration",
+                "getOrders"
+              ],
+              "query": [
+                {
+                  "key": "user_id",
+                  "value": "x' UNION SELECT user_id, order_timestamp, order_status, order_total FROM customer_orders-- "
+                }
+              ]
+            },
+            "description": "**Expected HTTP:** 200, 400 or 404\n\n**Why:** Must not return other users' orders."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "5 - HTTP / routing",
+      "item": [
+        {
+          "name": "HTTP01 - [Assumed] POST not allowed",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is one of [405]\", () => pm.expect(pm.response.code).to.be.oneOf([405]));",
+                  "pm.test(\"Response time < 2000 ms\", () => pm.expect(pm.response.responseTime).to.be.below(2000));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/integration/getOrders?user_id=AES45678",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "integration",
+                "getOrders"
+              ],
+              "query": [
+                {
+                  "key": "user_id",
+                  "value": "AES45678"
+                }
+              ]
+            },
+            "description": "**Expected HTTP:** 405\n\n**Why:** Restrict `allowedMethods` to GET on the listener."
+          },
+          "response": []
+        },
+        {
+          "name": "HTTP02 - [Assumed] PUT not allowed",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is one of [405]\", () => pm.expect(pm.response.code).to.be.oneOf([405]));",
+                  "pm.test(\"Response time < 2000 ms\", () => pm.expect(pm.response.responseTime).to.be.below(2000));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/integration/getOrders?user_id=AES45678",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "integration",
+                "getOrders"
+              ],
+              "query": [
+                {
+                  "key": "user_id",
+                  "value": "AES45678"
+                }
+              ]
+            },
+            "description": "**Expected HTTP:** 405\n\n**Why:** Same as HTTP01."
+          },
+          "response": []
+        },
+        {
+          "name": "HTTP03 - [Assumed] DELETE not allowed",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is one of [405]\", () => pm.expect(pm.response.code).to.be.oneOf([405]));",
+                  "pm.test(\"Response time < 2000 ms\", () => pm.expect(pm.response.responseTime).to.be.below(2000));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/integration/getOrders?user_id=AES45678",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "integration",
+                "getOrders"
+              ],
+              "query": [
+                {
+                  "key": "user_id",
+                  "value": "AES45678"
+                }
+              ]
+            },
+            "description": "**Expected HTTP:** 405\n\n**Why:** Same as HTTP01. Check the order still exists afterwards."
+          },
+          "response": []
+        },
+        {
+          "name": "HTTP04 - Unknown path returns 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is one of [404]\", () => pm.expect(pm.response.code).to.be.oneOf([404]));",
+                  "pm.test(\"Response time < 2000 ms\", () => pm.expect(pm.response.responseTime).to.be.below(2000));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/integration/getOrder?user_id=AES45678",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "integration",
+                "getOrder"
+              ],
+              "query": [
+                {
+                  "key": "user_id",
+                  "value": "AES45678"
+                }
+              ]
+            },
+            "description": "**Expected HTTP:** 404\n\n**Why:** Note the missing trailing `s`."
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "https://127.0.0.1:8083"
+    }
+  ]
+}

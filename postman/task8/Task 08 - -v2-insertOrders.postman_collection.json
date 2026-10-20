@@ -1,0 +1,346 @@
+{
+  "info": {
+    "_postman_id": "98e6dd12-0913-499c-85f2-75ba0f95ff24",
+    "name": "Task 08 - /v2/insertOrders",
+    "description": "Masking, upsert, cleansing, summary. Copy the CSV into data\\input before each request (it is moved after processing). See task08-insertOrders-v2.md for the files and DB checks.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "50632837",
+    "_collection_link": "https://go.postman.co/collection/50632837-98e6dd12-0913-499c-85f2-75ba0f95ff24?source=collection_link"
+  },
+  "item": [
+    {
+      "name": "T8-01 First run, all new",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"status 200\", () => pm.response.to.have.status(200));\nconst j = pm.response.json();\npm.test(\"summary\", () => pm.expect(j).to.eql({ fileName: \"orders.csv\", processed: 3, inserted: 3, updated: 0, failed: 0, status: \"SUCCESS\" }));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/integration/v2/insertOrders?filename=orders.csv",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "integration",
+            "v2",
+            "insertOrders"
+          ],
+          "query": [
+            {
+              "key": "filename",
+              "value": "orders.csv"
+            }
+          ]
+        },
+        "description": "Reset tables first. Files: orders.csv"
+      },
+      "response": []
+    },
+    {
+      "name": "T8-02 Upsert: 2 inserted, 1 updated",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"status 200\", () => pm.response.to.have.status(200));\nconst j = pm.response.json();\npm.test(\"summary\", () => pm.expect(j).to.eql({ fileName: \"orders.csv\", processed: 3, inserted: 2, updated: 1, failed: 0, status: \"SUCCESS\" }));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/integration/v2/insertOrders?filename=orders.csv",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "integration",
+            "v2",
+            "insertOrders"
+          ],
+          "query": [
+            {
+              "key": "filename",
+              "value": "orders.csv"
+            }
+          ]
+        },
+        "description": "Reset tables, insert only user AES45678 by SQL, copy orders.csv in."
+      },
+      "response": []
+    },
+    {
+      "name": "T8-03 Same file again: 3 updated",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"status 200\", () => pm.response.to.have.status(200));\nconst j = pm.response.json();\npm.test(\"summary\", () => pm.expect(j).to.eql({ fileName: \"orders.csv\", processed: 3, inserted: 0, updated: 3, failed: 0, status: \"SUCCESS\" }));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/integration/v2/insertOrders?filename=orders.csv",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "integration",
+            "v2",
+            "insertOrders"
+          ],
+          "query": [
+            {
+              "key": "filename",
+              "value": "orders.csv"
+            }
+          ]
+        },
+        "description": "Copy orders.csv back in first."
+      },
+      "response": []
+    },
+    {
+      "name": "T8-05 Bad record: 1 failed",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"status 200\", () => pm.response.to.have.status(200));\nconst j = pm.response.json();\npm.test(\"summary\", () => pm.expect(j).to.eql({ fileName: \"orders-bad.csv\", processed: 3, inserted: 2, updated: 0, failed: 1, status: \"FAILED\" }));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/integration/v2/insertOrders?filename=orders-bad.csv",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "integration",
+            "v2",
+            "insertOrders"
+          ],
+          "query": [
+            {
+              "key": "filename",
+              "value": "orders-bad.csv"
+            }
+          ]
+        },
+        "description": "File: orders-bad.csv (row 2 has an invalid timestamp)."
+      },
+      "response": []
+    },
+    {
+      "name": "T8-06 Empty file returns 400",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"status 400\", () => pm.response.to.have.status(400));\npm.test(\"body\", () => pm.expect(pm.response.json()).to.eql({ error: \"File validation failed\", reason: \"File is empty\" }));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/integration/v2/insertOrders?filename=empty.csv",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "integration",
+            "v2",
+            "insertOrders"
+          ],
+          "query": [
+            {
+              "key": "filename",
+              "value": "empty.csv"
+            }
+          ]
+        },
+        "description": "File: empty.csv (0 bytes)."
+      },
+      "response": []
+    },
+    {
+      "name": "T8-07 Over 5 MB returns 400",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"status 400\", () => pm.response.to.have.status(400));\npm.test(\"body\", () => pm.expect(pm.response.json()).to.eql({ error: \"File validation failed\", reason: \"File size exceeds 5 MB\" }));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/integration/v2/insertOrders?filename=big.csv",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "integration",
+            "v2",
+            "insertOrders"
+          ],
+          "query": [
+            {
+              "key": "filename",
+              "value": "big.csv"
+            }
+          ]
+        },
+        "description": "File: big.csv (6 MB)."
+      },
+      "response": []
+    },
+    {
+      "name": "T8-08 Header only: FAILED summary",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"status 200\", () => pm.response.to.have.status(200));\nconst j = pm.response.json();\npm.test(\"summary\", () => pm.expect(j).to.eql({ fileName: \"header-only.csv\", processed: 0, inserted: 0, updated: 0, failed: 0, status: \"FAILED\" }));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/integration/v2/insertOrders?filename=header-only.csv",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "integration",
+            "v2",
+            "insertOrders"
+          ],
+          "query": [
+            {
+              "key": "filename",
+              "value": "header-only.csv"
+            }
+          ]
+        },
+        "description": "File: header-only.csv."
+      },
+      "response": []
+    },
+    {
+      "name": "T8-09 File does not exist returns 404",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"status 404\", () => pm.response.to.have.status(404));\npm.test(\"body\", () => pm.expect(pm.response.json()).to.eql({ error: \"File not found\", message: \"nofile.csv does not exist in the input folder\" }));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/integration/v2/insertOrders?filename=nofile.csv",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "integration",
+            "v2",
+            "insertOrders"
+          ],
+          "query": [
+            {
+              "key": "filename",
+              "value": "nofile.csv"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "T8-10 No filename returns 400",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"status 400\", () => pm.response.to.have.status(400));\npm.test(\"error shape {error,message}\", () => pm.expect(pm.response.json()).to.have.keys(\"error\",\"message\"));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/integration/v2/insertOrders",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "integration",
+            "v2",
+            "insertOrders"
+          ]
+        }
+      },
+      "response": []
+    }
+  ]
+}

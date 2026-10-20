@@ -1,0 +1,4 @@
+"user_id","order_timestamp","order_status","order_total"
+"BAD00001","12/02/2021 11:02:00 PM","Confirmed","100"
+"BAD00002","not-a-date","Confirmed","200"
+"  BAD00003  ","12/02/2021 06:02:00 PM","  Confirmed ","1,250.50"

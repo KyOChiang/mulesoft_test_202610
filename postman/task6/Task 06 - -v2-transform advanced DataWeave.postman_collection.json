@@ -1,0 +1,552 @@
+{
+  "info": {
+    "_postman_id": "9a943b97-361c-41ea-86fd-a14f8c5d5712",
+    "name": "Task 06 - /v2/transform advanced DataWeave",
+    "description": "Metadata envelope, XML namespace, mapped values. No rate limit, no cache (that is Task 9 on /transform).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "50632837",
+    "_collection_link": "https://go.postman.co/collection/50632837-9a943b97-361c-41ea-86fd-a14f8c5d5712?source=collection_link"
+  },
+  "item": [
+    {
+      "name": "T6-01 JSON with metadata envelope",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"status 200\", () => pm.response.to.have.status(200));\npm.response.to.have.header(\"Content-Type\", /json/);\nconst j = pm.response.json();\npm.test(\"metadata\", () => { pm.expect(j.metadata.version).to.eql(\"1.0\"); pm.expect(j.metadata.processedAt).to.match(/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$/); });\npm.test(\"data matches Task 1 rules\", () => pm.expect(j.data).to.eql({ fullName: \"Jane Doe\", fullAddress: \"Bangsar, Kuala Lumpur, 59100\", \"orgnFormRefId-1\": 45,\n  \"originationType-1\": \"CORPORATE\", \"customerType-1\": \"Female\", sourcePartyAcct: \"C201-OWNER\",\n  customerId: \"FC201CORP\", totalOrders: 2, totalAmounts: 300, allOrdersIds: [\"A01\",\"A02\"] }));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"firstName\": \"Jane\",\n  \"lastName\": \"Doe\",\n  \"address\": \"Bangsar, Kuala Lumpur\",\n  \"poscode\": \"59100\",\n  \"orgnFormRefId\": 45.678,\n  \"originationType\": \"CORP\",\n  \"customerType\": \"F\",\n  \"sourceSystemId\": \"C201\",\n  \"partyAcctRelationship\": \"OWNER\",\n  \"orders\": [\n    {\n      \"orderId\": \"A01\",\n      \"amount\": 200\n    },\n    {\n      \"orderId\": \"A02\",\n      \"amount\": 100\n    }\n  ],\n  \"responseType\": \"JSON\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/integration/v2/transform",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "integration",
+            "v2",
+            "transform"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "T6-02 XML with namespace",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"status 200\", () => pm.response.to.have.status(200));\npm.response.to.have.header(\"Content-Type\", /xml/);\nconst x = pm.response.text();\npm.test(\"namespace\", () => pm.expect(x).to.include('xmlns:customer=\"http://acme.com/customer\"'));\npm.test(\"envelope\", () => [\"<customer:customerData\",\"<customer:metadata>\",\"<customer:data>\",\"<customer:fullName>Jane Doe</customer:fullName>\",\"<customer:orderId>A01</customer:orderId>\"].forEach(s => pm.expect(x).to.include(s)));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"firstName\": \"Jane\",\n  \"lastName\": \"Doe\",\n  \"address\": \"Bangsar, Kuala Lumpur\",\n  \"poscode\": \"59100\",\n  \"orgnFormRefId\": 45.678,\n  \"originationType\": \"CORP\",\n  \"customerType\": \"F\",\n  \"sourceSystemId\": \"C202\",\n  \"partyAcctRelationship\": \"OWNER\",\n  \"orders\": [\n    {\n      \"orderId\": \"A01\",\n      \"amount\": 200\n    },\n    {\n      \"orderId\": \"A02\",\n      \"amount\": 100\n    }\n  ],\n  \"responseType\": \"XML\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/integration/v2/transform",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "integration",
+            "v2",
+            "transform"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "T6-03 Mapped values M / INDV",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"status 200\", () => pm.response.to.have.status(200));\nconst d = pm.response.json().data;\npm.test(\"Male / INDIVIDUAL / id\", () => { pm.expect(d[\"customerType-1\"]).to.eql(\"Male\"); pm.expect(d[\"originationType-1\"]).to.eql(\"INDIVIDUAL\"); pm.expect(d.customerId).to.eql(\"MC203INDV\"); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"firstName\": \"Jane\",\n  \"lastName\": \"Doe\",\n  \"address\": \"Bangsar, Kuala Lumpur\",\n  \"poscode\": \"59100\",\n  \"orgnFormRefId\": 45.678,\n  \"originationType\": \"INDV\",\n  \"customerType\": \"M\",\n  \"sourceSystemId\": \"C203\",\n  \"partyAcctRelationship\": \"OWNER\",\n  \"orders\": [\n    {\n      \"orderId\": \"A01\",\n      \"amount\": 200\n    },\n    {\n      \"orderId\": \"A02\",\n      \"amount\": 100\n    }\n  ],\n  \"responseType\": \"JSON\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/integration/v2/transform",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "integration",
+            "v2",
+            "transform"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "T6-04 Empty orders",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"status 200\", () => pm.response.to.have.status(200));\nconst d = pm.response.json().data;\npm.test(\"zero totals\", () => { pm.expect(d.totalOrders).to.eql(0); pm.expect(d.totalAmounts).to.eql(0); pm.expect(d.allOrdersIds).to.eql([]); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"firstName\": \"Jane\",\n  \"lastName\": \"Doe\",\n  \"address\": \"Bangsar, Kuala Lumpur\",\n  \"poscode\": \"59100\",\n  \"orgnFormRefId\": 45.678,\n  \"originationType\": \"CORP\",\n  \"customerType\": \"F\",\n  \"sourceSystemId\": \"C204\",\n  \"partyAcctRelationship\": \"OWNER\",\n  \"orders\": [],\n  \"responseType\": \"JSON\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/integration/v2/transform",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "integration",
+            "v2",
+            "transform"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "T6-05 orgnFormRefId 45.999 floors to 45",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"status 200\", () => pm.response.to.have.status(200));\npm.test(\"floor\", () => pm.expect(pm.response.json().data[\"orgnFormRefId-1\"]).to.eql(45));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"firstName\": \"Jane\",\n  \"lastName\": \"Doe\",\n  \"address\": \"Bangsar, Kuala Lumpur\",\n  \"poscode\": \"59100\",\n  \"orgnFormRefId\": 45.999,\n  \"originationType\": \"CORP\",\n  \"customerType\": \"F\",\n  \"sourceSystemId\": \"C205\",\n  \"partyAcctRelationship\": \"OWNER\",\n  \"orders\": [\n    {\n      \"orderId\": \"A01\",\n      \"amount\": 200\n    },\n    {\n      \"orderId\": \"A02\",\n      \"amount\": 100\n    }\n  ],\n  \"responseType\": \"JSON\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/integration/v2/transform",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "integration",
+            "v2",
+            "transform"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "T6-06a Missing lastName: fullName null, rest still mapped",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"status 200\", () => pm.response.to.have.status(200));\nconst d = pm.response.json().data;\npm.test(\"fullName null\", () => pm.expect(d.fullName).to.eql(null));\npm.test(\"other fields still mapped\", () => { pm.expect(d.fullAddress).to.eql(\"Bangsar, Kuala Lumpur, 59100\"); pm.expect(d.customerId).to.eql(\"FC201CORP\"); pm.expect(d.totalAmounts).to.eql(300); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"firstName\": \"Jane\",\n  \"address\": \"Bangsar, Kuala Lumpur\",\n  \"poscode\": \"59100\",\n  \"orgnFormRefId\": 45.678,\n  \"originationType\": \"CORP\",\n  \"customerType\": \"F\",\n  \"sourceSystemId\": \"C201\",\n  \"partyAcctRelationship\": \"OWNER\",\n  \"orders\": [\n    {\n      \"orderId\": \"A01\",\n      \"amount\": 200\n    },\n    {\n      \"orderId\": \"A02\",\n      \"amount\": 100\n    }\n  ],\n  \"responseType\": \"JSON\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/integration/v2/transform",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "integration",
+            "v2",
+            "transform"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "T6-06b Explicit nulls",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"status 200\", () => pm.response.to.have.status(200));\nconst d = pm.response.json().data;\npm.test(\"null fields\", () => { [\"fullAddress\",\"orgnFormRefId-1\",\"customerType-1\",\"customerId\"].forEach(k => pm.expect(d[k]).to.eql(null)); });\npm.test(\"fullName still ok\", () => pm.expect(d.fullName).to.eql(\"Jane Doe\"));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"firstName\": \"Jane\",\n  \"lastName\": \"Doe\",\n  \"address\": null,\n  \"poscode\": null,\n  \"orgnFormRefId\": null,\n  \"originationType\": \"CORP\",\n  \"customerType\": null,\n  \"sourceSystemId\": \"C201\",\n  \"partyAcctRelationship\": \"OWNER\",\n  \"orders\": [\n    {\n      \"orderId\": \"A01\",\n      \"amount\": 200\n    },\n    {\n      \"orderId\": \"A02\",\n      \"amount\": 100\n    }\n  ],\n  \"responseType\": \"JSON\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/integration/v2/transform",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "integration",
+            "v2",
+            "transform"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "T6-06c Empty object: every field null",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"status 200\", () => pm.response.to.have.status(200));\nconst j = pm.response.json();\npm.test(\"metadata still present\", () => pm.expect(j.metadata.version).to.eql(\"1.0\"));\npm.test(\"all 10 data fields are null\", () => { pm.expect(Object.keys(j.data)).to.have.length(10); pm.expect(Object.values(j.data).every(v => v === null)).to.be.true; });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/integration/v2/transform",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "integration",
+            "v2",
+            "transform"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "T6-06d orders null",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"status 200\", () => pm.response.to.have.status(200));\nconst d = pm.response.json().data;\npm.test(\"order fields null\", () => { pm.expect(d.totalOrders).to.eql(null); pm.expect(d.totalAmounts).to.eql(null); pm.expect(d.allOrdersIds).to.eql(null); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"firstName\": \"Jane\",\n  \"lastName\": \"Doe\",\n  \"address\": \"Bangsar, Kuala Lumpur\",\n  \"poscode\": \"59100\",\n  \"orgnFormRefId\": 45.678,\n  \"originationType\": \"CORP\",\n  \"customerType\": \"F\",\n  \"sourceSystemId\": \"C201\",\n  \"partyAcctRelationship\": \"OWNER\",\n  \"orders\": null,\n  \"responseType\": \"JSON\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/integration/v2/transform",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "integration",
+            "v2",
+            "transform"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "T6-06e Order without amount counts as 0",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"status 200\", () => pm.response.to.have.status(200));\nconst d = pm.response.json().data;\npm.test(\"totals\", () => { pm.expect(d.totalOrders).to.eql(2); pm.expect(d.totalAmounts).to.eql(100); pm.expect(d.allOrdersIds).to.eql([\"A01\",\"A02\"]); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"firstName\": \"Jane\",\n  \"lastName\": \"Doe\",\n  \"address\": \"Bangsar, Kuala Lumpur\",\n  \"poscode\": \"59100\",\n  \"orgnFormRefId\": 45.678,\n  \"originationType\": \"CORP\",\n  \"customerType\": \"F\",\n  \"sourceSystemId\": \"C201\",\n  \"partyAcctRelationship\": \"OWNER\",\n  \"orders\": [\n    {\n      \"orderId\": \"A01\"\n    },\n    {\n      \"orderId\": \"A02\",\n      \"amount\": 100\n    }\n  ],\n  \"responseType\": \"JSON\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/integration/v2/transform",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "integration",
+            "v2",
+            "transform"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "T6-06f XML with every field null",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"status 200\", () => pm.response.to.have.status(200));\npm.response.to.have.header(\"Content-Type\", /xml/);\npm.test(\"namespace + envelope\", () => { const x = pm.response.text(); pm.expect(x).to.include('xmlns:customer=\"http://acme.com/customer\"'); pm.expect(x).to.include(\"<customer:data\"); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"responseType\": \"XML\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/integration/v2/transform",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "integration",
+            "v2",
+            "transform"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "T6-06g Wrong type is still a 400",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"status 400\", () => pm.response.to.have.status(400));\npm.test(\"error shape {error,message}\", () => pm.expect(pm.response.json()).to.have.keys(\"error\",\"message\"));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"firstName\": \"Jane\",\n  \"lastName\": \"Doe\",\n  \"address\": \"Bangsar, Kuala Lumpur\",\n  \"poscode\": \"59100\",\n  \"orgnFormRefId\": \"abc\",\n  \"originationType\": \"CORP\",\n  \"customerType\": \"F\",\n  \"sourceSystemId\": \"C201\",\n  \"partyAcctRelationship\": \"OWNER\",\n  \"orders\": [\n    {\n      \"orderId\": \"A01\",\n      \"amount\": 200\n    },\n    {\n      \"orderId\": \"A02\",\n      \"amount\": 100\n    }\n  ],\n  \"responseType\": \"JSON\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/integration/v2/transform",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "integration",
+            "v2",
+            "transform"
+          ]
+        }
+      },
+      "response": []
+    }
+  ]
+}

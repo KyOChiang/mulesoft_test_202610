@@ -1,0 +1,878 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule
+	xmlns:batch="http://www.mulesoft.org/schema/mule/batch"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:apikit="http://www.mulesoft.org/schema/mule/mule-apikit"
+	xmlns:db="http://www.mulesoft.org/schema/mule/db"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:file="http://www.mulesoft.org/schema/mule/file"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:os="http://www.mulesoft.org/schema/mule/os"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="  http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd   http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd   http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd  http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd  http://www.mulesoft.org/schema/mule/mule-apikit http://www.mulesoft.org/schema/mule/mule-apikit/current/mule-apikit.xsd  http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd http://www.mulesoft.org/schema/mule/os http://www.mulesoft.org/schema/mule/os/current/mule-os.xsd http://www.mulesoft.org/schema/mule/batch http://www.mulesoft.org/schema/mule/batch/current/mule-batch.xsd">
+
+	<!-- ================================================================= -->
+	<!-- 1. GLOBAL CONFIG                                                   -->
+	<!--    (HTTPS listener, MySQL_Config, Backend_Request_Config and the   -->
+	<!--     secure properties all come from the domain project)            -->
+	<!-- ================================================================= -->
+	<global-property name="dataDir" value="C:\this\FA\AS\assessment-workspace\data" />
+	<!-- TESTING: set rateLimitPerMinute to 3, restore to 100 -->
+	<global-property name="rateLimitPerMinute" value="3" />
+
+	<!-- single file config: sub-folders are input/ output/ error/ under dataDir -->
+	<file:config name="File_Config">
+		<file:connection workingDir="${dataDir}" />
+	</file:config>
+
+	<apikit:config name="integration-api2-config" api="integration-api2.raml" outboundHeadersMapName="outboundHeaders" httpStatusVarName="httpStatus" />
+
+	<os:config name="Object_Store_Config">
+		<os:connection />
+	</os:config>
+	<!-- Task 5 (/v1/recordsBackend): used ids, 1 hour -->
+	<os:object-store name="UserId_Store" config-ref="Object_Store_Config" persistent="true" entryTtl="1" entryTtlUnit="HOURS" expirationInterval="1" expirationIntervalUnit="MINUTES" />
+	<!-- Task 9: counter resets itself, entries expire 65 seconds after the last write -->
+	<os:object-store name="RateLimit_Store" config-ref="Object_Store_Config" persistent="false" entryTtl="65" entryTtlUnit="SECONDS" expirationInterval="10" expirationIntervalUnit="SECONDS" />
+	<!-- Task 9: response cache, 5 minutes -->
+	<os:object-store name="Cache_Store" config-ref="Object_Store_Config" persistent="false" entryTtl="5" entryTtlUnit="MINUTES" maxEntries="1000" expirationInterval="30" expirationIntervalUnit="SECONDS" />
+	<!-- Task 11: full backend response per User Id, 10 minutes (idempotency) -->
+	<os:object-store name="Idempotency_Store" config-ref="Object_Store_Config" persistent="false" entryTtl="10" entryTtlUnit="MINUTES" expirationInterval="30" expirationIntervalUnit="SECONDS" />
+	<!-- Task 11: circuit breaker state (no TTL, we compare timestamps ourselves) -->
+	<os:object-store name="CircuitBreaker_Store" config-ref="Object_Store_Config" persistent="true" />
+
+	<!-- ================================================================= -->
+	<!-- 2. GLOBAL ERROR HANDLER  ->  { "error": ..., "message": ... }      -->
+	<!--    status / body / headers all come from dwl::transformUtils       -->
+	<!--    mapError(), so a new error type is a one-line change there.     -->
+	<!-- ================================================================= -->
+	<error-handler name="Global_Error_Handler">
+		<on-error-propagate>
+			<logger level="ERROR" message="#['Request failed: ' ++ error.errorType.namespace ++ ':' ++ error.errorType.identifier]" />
+			<ee:transform>
+				<ee:message>
+					<ee:set-payload><![CDATA[%dw 2.0
+import mapError from dwl::transformUtils
+output application/json
+---
+mapError(error, vars.fileName default "").body]]></ee:set-payload>
+				</ee:message>
+				<ee:variables>
+					<ee:set-variable variableName="httpStatus"><![CDATA[%dw 2.0
+import mapError from dwl::transformUtils
+output application/java
+---
+mapError(error, vars.fileName default "").status]]></ee:set-variable>
+					<ee:set-variable variableName="outboundHeaders"><![CDATA[%dw 2.0
+import mapError from dwl::transformUtils
+output application/java
+---
+mapError(error, vars.fileName default "").headers]]></ee:set-variable>
+				</ee:variables>
+			</ee:transform>
+		</on-error-propagate>
+	</error-handler>
+
+	<!-- ================================================================= -->
+	<!-- 3. APIKIT ENTRY POINTS                                             -->
+	<!-- ================================================================= -->
+	<flow name="integration-api2-main">
+		<http:listener config-ref="HTTPS_Listener_config" path="/api/integration/*">
+			<http:response statusCode="#[vars.httpStatus default 200]">
+				<http:headers>#[vars.outboundHeaders default {}]</http:headers>
+			</http:response>
+			<http:error-response statusCode="#[vars.httpStatus default 500]">
+				<http:body>#[payload]</http:body>
+				<http:headers>#[vars.outboundHeaders default {}]</http:headers>
+			</http:error-response>
+		</http:listener>
+		<apikit:router config-ref="integration-api2-config" />
+		<error-handler ref="Global_Error_Handler" />
+	</flow>
+
+	<flow name="integration-api2-console">
+		<http:listener config-ref="HTTPS_Listener_config" path="/console/*">
+			<http:response statusCode="#[vars.httpStatus default 200]">
+				<http:headers>#[vars.outboundHeaders default {}]</http:headers>
+			</http:response>
+			<http:error-response statusCode="#[vars.httpStatus default 500]">
+				<http:body>#[payload]</http:body>
+				<http:headers>#[vars.outboundHeaders default {}]</http:headers>
+			</http:error-response>
+		</http:listener>
+		<apikit:console config-ref="integration-api2-config" />
+		<error-handler ref="Global_Error_Handler" />
+	</flow>
+
+	<flow name="env-check-flow">
+		<scheduler>
+			<scheduling-strategy>
+				<cron expression="0 0/5 * * * ?" />
+			</scheduling-strategy>
+		</scheduler>
+		<logger level="INFO" message="#['Active DB: ${db.name}']" />
+	</flow>
+
+	<flow name="get:\health:integration-api2-config">
+		<ee:transform>
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{ status: "UP", uptime: 12345 }]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+
+	<!-- ================================================================= -->
+	<!-- 4. TASK 1 / 6 / 9 : TRANSFORM                                      -->
+	<!--    /v1/transform = Task 1 (no metadata, no rate limit, no cache)   -->
+	<!--    /v2/transform = Task 6 (metadata, XML namespace)                -->
+	<!--    /transform    = Task 9 (Task 6 + rate limit + cache)            -->
+	<!--    both share transform-render-subflow                             -->
+	<!-- ================================================================= -->
+	<flow name="post:\v1\transform:application\json:integration-api2-config">
+		<set-variable variableName="responseType" value="#[payload.responseType default 'JSON']" />
+		<set-variable variableName="withMetadata" value="#[false]" />
+		<flow-ref name="transform-render-subflow" />
+	</flow>
+
+	<!-- Task 6 only: metadata + namespace, NO rate limit, NO cache -->
+	<flow name="post:\v2\transform:application\json:integration-api2-config">
+		<set-variable variableName="responseType" value="#[payload.responseType default 'JSON']" />
+		<set-variable variableName="withMetadata" value="#[true]" />
+		<flow-ref name="transform-render-subflow" />
+	</flow>
+
+	<flow name="post:\transform:application\json:integration-api2-config">
+		<set-variable variableName="responseType" value="#[payload.responseType default 'JSON']" />
+		<set-variable variableName="withMetadata" value="#[true]" />
+		<flow-ref name="rate-limit-subflow" />
+		<ee:transform>
+			<ee:variables>
+				<ee:set-variable variableName="cacheKey"><![CDATA[%dw 2.0
+import cacheKey from dwl::transformUtils
+output application/java
+---
+cacheKey(payload)]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<os:contains config-ref="Object_Store_Config" objectStore="Cache_Store" key="#[vars.cacheKey]" target="cacheHit" />
+		<choice>
+			<!-- HIT: return the stored response -->
+			<when expression="#[vars.cacheHit]">
+				<os:retrieve config-ref="Object_Store_Config" objectStore="Cache_Store" key="#[vars.cacheKey]" target="cachedBody" />
+				<choice>
+					<when expression="#[vars.responseType == 'XML']">
+						<set-payload value="#[vars.cachedBody]" mimeType="application/xml" />
+					</when>
+					<otherwise>
+						<set-payload value="#[vars.cachedBody]" mimeType="application/json" />
+					</otherwise>
+				</choice>
+				<set-variable variableName="outboundHeaders" value="#[{ 'X-Cache': 'HIT' }]" />
+			</when>
+			<!-- MISS: compute, store, return -->
+			<otherwise>
+				<flow-ref name="transform-render-subflow" />
+				<os:store config-ref="Object_Store_Config" objectStore="Cache_Store" key="#[vars.cacheKey]">
+					<os:value>#[vars.renderedBody]</os:value>
+				</os:store>
+				<set-variable variableName="outboundHeaders" value="#[{ 'X-Cache': 'MISS' }]" />
+			</otherwise>
+		</choice>
+	</flow>
+
+	<!-- needs vars.responseType and vars.withMetadata. Output is a finished text response (String + mime type).
+	     vars.renderedBody keeps the plain String: once the payload carries a JSON/XML mime type,
+	     DataWeave reads it as an object, so "payload as String" would fail. The cache stores renderedBody. -->
+	<sub-flow name="transform-render-subflow">
+		<choice>
+			<when expression="#[vars.responseType == 'XML']">
+				<ee:transform>
+					<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
+import xmlResponse from dwl::transformUtils
+output application/java
+---
+write(xmlResponse(payload, vars.withMetadata), "application/xml")]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+				<set-variable variableName="renderedBody" value="#[payload]" />
+				<set-payload value="#[payload]" mimeType="application/xml" />
+			</when>
+			<otherwise>
+				<ee:transform>
+					<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
+import jsonResponse from dwl::transformUtils
+output application/java
+---
+write(jsonResponse(payload, vars.withMetadata), "application/json")]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+				<set-variable variableName="renderedBody" value="#[payload]" />
+				<set-payload value="#[payload]" mimeType="application/json" />
+			</otherwise>
+		</choice>
+	</sub-flow>
+
+	<!-- counter key = rate-limit-yyyy-MM-dd-HH-mm ; over the limit -> 429 via Global_Error_Handler -->
+	<sub-flow name="rate-limit-subflow">
+		<set-variable variableName="rateKey" value="#['rate-limit-' ++ ((now() &gt;&gt; 'UTC') as String {format: 'yyyy-MM-dd-HH-mm'})]" />
+		<os:retrieve config-ref="Object_Store_Config" objectStore="RateLimit_Store" key="#[vars.rateKey]" target="rateCount">
+			<os:default-value>#[0]</os:default-value>
+		</os:retrieve>
+		<set-variable variableName="rateCount" value="#[(vars.rateCount as Number) + 1]" />
+		<os:store config-ref="Object_Store_Config" objectStore="RateLimit_Store" key="#[vars.rateKey]">
+			<os:value>#[vars.rateCount]</os:value>
+		</os:store>
+		<choice>
+			<when expression="#[vars.rateCount &gt; (p('rateLimitPerMinute') as Number)]">
+				<raise-error type="APP:RATE_LIMIT_EXCEEDED" description="Rate limit exceeded" />
+			</when>
+		</choice>
+	</sub-flow>
+
+	<!-- ================================================================= -->
+	<!-- 5. TASK 3 : GET ORDERS                                             -->
+	<!-- ================================================================= -->
+	<flow name="get:\getOrders:integration-api2-config">
+		<set-variable variableName="userId" value="#[attributes.queryParams.user_id]" />
+		<db:select config-ref="MySQL_Config">
+			<db:sql>SELECT user_id, order_timestamp, order_status, order_total
+				FROM customer_orders
+				WHERE user_id = :userId
+				ORDER BY order_timestamp DESC, id DESC
+				LIMIT 10</db:sql>
+			<db:input-parameters>#[{ userId: vars.userId }]</db:input-parameters>
+		</db:select>
+		<ee:transform>
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+if (isEmpty(payload))
+	{ message: "No records found for user_id: " ++ vars.userId }
+else
+	{
+		user_id: vars.userId,
+		orders: payload map (o) -> {
+			order_timestamp: o.order_timestamp as String {format: "yyyy-MM-dd'T'HH:mm:ss'Z'"},
+			order_status:    o.order_status,
+			order_total:     o.order_total
+		}
+	}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+
+	<!-- ================================================================= -->
+	<!-- 6. BACKEND MOCK SERVICE (Tasks 4, 5, 11)                           -->
+	<!-- ================================================================= -->
+
+	<!-- one single call (90s timeout); body = vars.backendRequest, payload out = backend JSON -->
+	<flow name="backend-call-flow">
+		<http:request config-ref="Backend_Request_Config" method="POST" path="/assessment" responseTimeout="90000">
+			<http:body>#[output application/json --- vars.backendRequest]</http:body>
+		</http:request>
+	</flow>
+
+	<!-- Task 11 retry: up to 3 retries, wait 1s -> 2s -> 4s (exponential).
+	     Only transient errors are retried; the last failure is propagated. -->
+	<flow name="backend-call-retry-flow">
+		<set-variable variableName="attempt" value="#[(vars.attempt default 0) + 1]" />
+		<try>
+			<flow-ref name="backend-call-flow" />
+			<error-handler>
+				<on-error-continue type="HTTP:CONNECTIVITY, HTTP:TIMEOUT, HTTP:INTERNAL_SERVER_ERROR, HTTP:BAD_GATEWAY, HTTP:SERVICE_UNAVAILABLE, HTTP:GATEWAY_TIMEOUT" when="#[vars.attempt &lt;= 3]">
+					<logger level="WARN" message="#['Backend attempt ' ++ (vars.attempt as String) ++ ' failed: ' ++ error.description]" />
+					<ee:transform>
+						<ee:variables>
+							<ee:set-variable variableName="waited"><![CDATA[%dw 2.0
+import wait from dw::Runtime
+output application/java
+---
+wait(vars.attempt, [1000, 2000, 4000][vars.attempt - 1])]]></ee:set-variable>
+						</ee:variables>
+					</ee:transform>
+					<logger level="WARN" message="Backend attempt wait done." />
+					<flow-ref name="backend-call-retry-flow" />
+				</on-error-continue>
+			</error-handler>
+		</try>
+	</flow>
+
+	<!-- Task 11 circuit breaker (Object Store keys: cb-failure-count, cb-opened-at)
+	     closed    : failures < 3
+	     open      : failures >= 3 and opened < 60s ago  -> 503
+	     half-open : failures >= 3 and opened >= 60s ago -> ONE probe goes through
+	                 (cb-opened-at is reset first, so parallel requests still see "open") -->
+	<flow name="circuit-guarded-backend-call-flow">
+		<os:retrieve config-ref="Object_Store_Config" objectStore="CircuitBreaker_Store" key="cb-failure-count" target="cbFailures">
+			<os:default-value>#[0]</os:default-value>
+		</os:retrieve>
+		<os:retrieve config-ref="Object_Store_Config" objectStore="CircuitBreaker_Store" key="cb-opened-at" target="cbOpenedAt">
+			<os:default-value>#[0]</os:default-value>
+		</os:retrieve>
+		<logger level="INFO" message="#[&quot;CB State: failures=$(vars.cbFailures), openedAt=$(vars.cbOpenedAt)&quot;]"/>
+		<choice>
+			<when expression="#[vars.cbFailures &gt;= 3 and ((now() as Number {unit: 'milliseconds'}) - vars.cbOpenedAt) &lt; 60000]">
+				<raise-error type="APP:CIRCUIT_OPEN" description="Circuit open" />
+			</when>
+			<when expression="#[vars.cbFailures &gt;= 3]">
+				<logger level="INFO" message="Circuit half-open: letting one probe request through" />
+				<os:store config-ref="Object_Store_Config" objectStore="CircuitBreaker_Store" key="cb-opened-at">
+					<os:value>#[now() as Number {unit: 'milliseconds'}]</os:value>
+				</os:store>
+			</when>
+		</choice>
+		<try>
+			<flow-ref name="backend-call-retry-flow" />
+			<!-- success (also a successful probe) -> circuit closed -->
+			<os:store config-ref="Object_Store_Config" objectStore="CircuitBreaker_Store" key="cb-failure-count">
+				<os:value>#[0]</os:value>
+			</os:store>
+			<error-handler>
+				<on-error-propagate type="ANY">
+					<os:store config-ref="Object_Store_Config" objectStore="CircuitBreaker_Store" key="cb-failure-count">
+						<os:value>#[vars.cbFailures + 1]</os:value>
+					</os:store>
+					<os:store config-ref="Object_Store_Config" objectStore="CircuitBreaker_Store" key="cb-opened-at">
+						<os:value>#[now() as Number {unit: 'milliseconds'}]</os:value>
+					</os:store>
+				</on-error-propagate>
+			</error-handler>
+		</try>
+	</flow>
+
+	<!-- ================================================================= -->
+	<!-- 7. TASK 5 : /v1/recordsBackend  (409 when the User Id was used)    -->
+	<!-- ================================================================= -->
+	<flow name="post:\v1\recordsBackend:application\json:integration-api2-config">
+		<set-variable variableName="userId" value="#[payload.&quot;User Id&quot; as String]" />
+		<ee:transform>
+			<ee:variables>
+				<ee:set-variable variableName="backendRequest"><![CDATA[%dw 2.0
+import backendRequestFromApi from dwl::transformUtils
+output application/java
+---
+backendRequestFromApi(payload)]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<os:contains config-ref="Object_Store_Config" objectStore="UserId_Store" key="#[vars.userId]" target="alreadyExists" />
+		<choice>
+			<when expression="#[vars.alreadyExists]">
+				<raise-error type="APP:USER_ID_IN_USE" description="User ID is already in use" />
+			</when>
+			<otherwise>
+				<flow-ref name="backend-call-flow" />
+				<!-- store ONLY after the backend call succeeded -->
+				<os:store config-ref="Object_Store_Config" objectStore="UserId_Store" key="#[vars.userId]">
+					<os:value>#[vars.userId]</os:value>
+				</os:store>
+				<ee:transform>
+					<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
+import backendResponse from dwl::transformUtils
+output application/json
+---
+backendResponse(payload)]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</otherwise>
+		</choice>
+	</flow>
+
+	<!-- ================================================================= -->
+	<!-- 8. TASK 11 : /recordsBackend                                       -->
+	<!--    idempotency (10 min) -> circuit breaker -> retry -> backend     -->
+	<!--    NOTE: a repeated User Id now returns the cached response (200)  -->
+	<!--    instead of the Task 5 409, which is why Task 5 lives on /v1.    -->
+	<!-- ================================================================= -->
+	<flow name="post:\recordsBackend:application\json:integration-api2-config">
+		<set-variable variableName="userId" value="#[payload.&quot;User Id&quot; as String]" />
+		<ee:transform>
+			<ee:variables>
+				<ee:set-variable variableName="backendRequest"><![CDATA[%dw 2.0
+import backendRequestFromApi from dwl::transformUtils
+output application/java
+---
+backendRequestFromApi(payload)]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<os:contains config-ref="Object_Store_Config" objectStore="Idempotency_Store" key="#[vars.userId]" target="replay" />
+		<choice>
+			<when expression="#[vars.replay]">
+				<logger level="INFO" message="#['Idempotent replay for User Id ' ++ vars.userId]" />
+				<os:retrieve config-ref="Object_Store_Config" objectStore="Idempotency_Store" key="#[vars.userId]" />
+			</when>
+			<otherwise>
+				<flow-ref name="circuit-guarded-backend-call-flow" />
+				<ee:transform>
+					<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
+import backendResponse from dwl::transformUtils
+output application/java
+---
+backendResponse(payload)]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+				<os:store config-ref="Object_Store_Config" objectStore="Idempotency_Store" key="#[vars.userId]">
+					<os:value>#[payload]</os:value>
+				</os:store>
+			</otherwise>
+		</choice>
+		<ee:transform>
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+
+	<!-- ================================================================= -->
+	<!-- 9. INSERT ORDERS                                                   -->
+	<!--    /v1/insertOrders = Task 2  (plain insert, raw ids, simple msg)  -->
+	<!--    /v2/insertOrders = Task 8  (masking, upsert, summary response)  -->
+	<!--    /insertOrders    = Task 10 (batch job, async)                   -->
+	<!--    Flags set by each entry flow:                                   -->
+	<!--      maskIds : mask file name / user ids in logs, audit, errors    -->
+	<!--      upsert  : update when user_id already exists                  -->
+	<!--      summary : return the Task 8 summary instead of the Task 2 msg -->
+	<!-- ================================================================= -->
+	<flow name="post:\v1\insertOrders:integration-api2-config">
+		<set-variable variableName="maskIds" value="#[false]" />
+		<set-variable variableName="upsert" value="#[false]" />
+		<set-variable variableName="summary" value="#[false]" />
+		<flow-ref name="insert-orders-foreach-flow" />
+	</flow>
+
+	<flow name="post:\v2\insertOrders:integration-api2-config">
+		<set-variable variableName="maskIds" value="#[true]" />
+		<set-variable variableName="upsert" value="#[true]" />
+		<set-variable variableName="summary" value="#[true]" />
+		<flow-ref name="insert-orders-foreach-flow" />
+	</flow>
+
+	<flow name="post:\insertOrders:integration-api2-config">
+		<set-variable variableName="maskIds" value="#[true]" />
+		<flow-ref name="file-load-subflow" />
+		<choice>
+			<when expression="#[isEmpty(payload)]">
+				<raise-error type="APP:BAD_REQUEST" description="File contains no records" />
+			</when>
+		</choice>
+		<!-- starts a NEW job instance and returns its id immediately -->
+		<flow-ref name="order-batch-flow" />
+		<set-variable variableName="batchJobId" value="#[payload.id]" />
+		<!-- rows are already in memory, so the file can be archived now -->
+		<file:move config-ref="File_Config" sourcePath="#['input/' ++ vars.fileName]" targetPath="output" overwrite="true" />
+		<ee:transform>
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{ message: "Batch job submitted", batchJobId: vars.batchJobId }]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+
+	<!-- ==== shared: read + validate the CSV ==== -->
+	<!-- in : query param filename, vars.maskIds                           -->
+	<!-- out: payload = array of raw CSV rows; vars.fileName, vars.auditName -->
+	<!-- empty / >5MB file -> moved to error/, audit FAILED, 400           -->
+	<sub-flow name="file-load-subflow">
+		<set-variable variableName="fileName" value="#[attributes.queryParams.filename]" />
+		<ee:transform>
+			<ee:variables>
+				<ee:set-variable variableName="auditName"><![CDATA[%dw 2.0
+import maskId from dwl::transformUtils
+output application/java
+---
+if (vars.maskIds default true) maskId(vars.fileName) else vars.fileName]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<file:read config-ref="File_Config" path="#['input/' ++ vars.fileName]" />
+		<logger level="INFO" message="#['Read file ' ++ vars.auditName ++ ', size ' ++ (attributes.size as String)]" />
+		<ee:transform>
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+import rejectReason from dwl::transformUtils
+input payload application/csv header=true
+output application/java
+---
+if (rejectReason(attributes.size) != null) [] else payload]]></ee:set-payload>
+			</ee:message>
+			<ee:variables>
+				<ee:set-variable variableName="rejectReason"><![CDATA[%dw 2.0
+import rejectReason from dwl::transformUtils
+output application/java
+---
+rejectReason(attributes.size)]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<choice>
+			<when expression="#[vars.rejectReason != null]">
+				<file:move config-ref="File_Config" sourcePath="#['input/' ++ vars.fileName]" targetPath="error" overwrite="true" />
+				<set-variable variableName="auditStatus" value="FAILED" />
+				<set-variable variableName="auditReason" value="#[vars.rejectReason]" />
+				<flow-ref name="audit-log-subflow" />
+				<raise-error type="APP:INVALID_FILE" description="#[vars.rejectReason]" />
+			</when>
+		</choice>
+	</sub-flow>
+
+	<!-- ==== shared: one row of the CSV ==== -->
+	<!-- sets vars.maskedUserId (safe for logs), payload = cleansed order -->
+	<sub-flow name="cleanse-record-subflow">
+		<ee:transform>
+			<ee:variables>
+				<ee:set-variable variableName="maskedUserId"><![CDATA[%dw 2.0
+import displayId from dwl::transformUtils
+output application/java
+---
+displayId(payload.user_id, vars.maskIds default true)]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<ee:transform>
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+import cleanseOrder from dwl::transformUtils
+output application/java
+---
+cleanseOrder(payload)]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<choice>
+			<when expression="#[isEmpty(payload.userId)]">
+				<raise-error type="APP:INVALID_RECORD" description="user_id is missing" />
+			</when>
+		</choice>
+	</sub-flow>
+
+	<!-- ==== shared: audit tables ==== -->
+	<!-- in: vars.auditName, vars.auditStatus, vars.auditReason -->
+	<sub-flow name="audit-log-subflow">
+		<db:insert config-ref="MySQL_Config">
+			<db:sql>INSERT INTO file_audit_log (file_name, status, reason, timestamp)
+				VALUES (:fileName, :status, :reason, :timestamp)</db:sql>
+			<db:input-parameters>#[{
+				fileName:  vars.auditName,
+				status:    vars.auditStatus,
+				reason:    vars.auditReason,
+				timestamp: now()
+			}]</db:input-parameters>
+		</db:insert>
+	</sub-flow>
+
+	<!-- in: vars.errUserId, vars.errMessage -->
+	<sub-flow name="order-error-subflow">
+		<try>
+			<db:insert config-ref="MySQL_Config">
+				<db:sql>INSERT INTO order_errors (user_id, error_message, timestamp)
+					VALUES (:userId, :message, :timestamp)</db:sql>
+				<db:input-parameters>#[{
+					userId:    vars.errUserId,
+					message:   vars.errMessage,
+					timestamp: now()
+				}]</db:input-parameters>
+			</db:insert>
+			<error-handler>
+				<!-- never let the error log break the run -->
+				<on-error-continue logException="true" />
+			</error-handler>
+		</try>
+	</sub-flow>
+
+	<!-- ==== Task 2 + Task 8 : sequential For Each ==== -->
+	<flow name="insert-orders-foreach-flow">
+		<flow-ref name="file-load-subflow" />
+		<set-variable variableName="total" value="#[sizeOf(payload)]" />
+		<set-variable variableName="inserted" value="#[0]" />
+		<set-variable variableName="updated" value="#[0]" />
+		<set-variable variableName="failed" value="#[0]" />
+		<!-- sequential on purpose: exact counters -->
+		<foreach>
+			<try>
+				<flow-ref name="cleanse-record-subflow" />
+				<set-variable variableName="existingCount" value="#[0]" />
+				<choice>
+					<when expression="#[vars.upsert]">
+						<db:select config-ref="MySQL_Config" target="existingCount" targetValue="#[payload[0].cnt as Number]">
+							<db:sql>SELECT COUNT(*) AS cnt FROM customer_orders WHERE user_id = :userId</db:sql>
+							<db:input-parameters>#[{ userId: payload.userId }]</db:input-parameters>
+						</db:select>
+					</when>
+				</choice>
+				<choice>
+					<when expression="#[vars.existingCount &gt; 0]">
+						<db:update config-ref="MySQL_Config">
+							<db:sql>UPDATE customer_orders
+								SET order_timestamp = :orderTimestamp, order_status = :orderStatus, order_total = :orderTotal
+								WHERE user_id = :userId</db:sql>
+							<db:input-parameters>#[payload]</db:input-parameters>
+						</db:update>
+						<set-variable variableName="updated" value="#[vars.updated + 1]" />
+						<logger level="INFO" message="#['Updated user_id ' ++ vars.maskedUserId]" />
+					</when>
+					<otherwise>
+						<db:insert config-ref="MySQL_Config">
+							<db:sql>INSERT INTO customer_orders (user_id, order_timestamp, order_status, order_total)
+								VALUES (:userId, :orderTimestamp, :orderStatus, :orderTotal)</db:sql>
+							<db:input-parameters>#[payload]</db:input-parameters>
+						</db:insert>
+						<set-variable variableName="inserted" value="#[vars.inserted + 1]" />
+						<logger level="INFO" message="#['Inserted user_id ' ++ vars.maskedUserId]" />
+					</otherwise>
+				</choice>
+				<error-handler>
+					<!-- one bad record never stops the file -->
+					<on-error-continue type="ANY">
+						<set-variable variableName="failed" value="#[vars.failed + 1]" />
+						<set-variable variableName="errUserId" value="#[vars.maskedUserId default '***']" />
+						<!-- masked mode: identifier only, error.description may contain the raw id -->
+						<set-variable variableName="errMessage" value="#[if (vars.maskIds) error.errorType.identifier else error.description]" />
+						<logger level="ERROR" message="#['Record failed for user_id ' ++ vars.errUserId ++ ': ' ++ error.errorType.identifier]" />
+						<flow-ref name="order-error-subflow" />
+					</on-error-continue>
+				</error-handler>
+			</try>
+		</foreach>
+		<!-- processed file -> output/ -->
+		<file:move config-ref="File_Config" sourcePath="#['input/' ++ vars.fileName]" targetPath="output" overwrite="true" />
+		<choice>
+			<!-- Task 8: summary response + summary in the audit reason -->
+			<when expression="#[vars.summary]">
+				<ee:transform>
+					<ee:variables>
+						<ee:set-variable variableName="result"><![CDATA[%dw 2.0
+import buildSummary from dwl::transformUtils
+output application/java
+---
+buildSummary(vars.fileName, vars.total, vars.inserted, vars.updated, vars.failed)]]></ee:set-variable>
+						<ee:set-variable variableName="auditReason"><![CDATA[%dw 2.0
+import buildSummary, failureReason, auditJson from dwl::transformUtils
+output application/java
+---
+auditJson(buildSummary(vars.auditName, vars.total, vars.inserted, vars.updated, vars.failed),
+          failureReason(vars.total, vars.failed))]]></ee:set-variable>
+					</ee:variables>
+				</ee:transform>
+				<set-variable variableName="auditStatus" value="#[vars.result.status]" />
+				<flow-ref name="audit-log-subflow" />
+				<ee:transform>
+					<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+vars.result]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</when>
+			<!-- Task 2: simple message -->
+			<otherwise>
+				<set-variable variableName="auditStatus" value="SUCCESS" />
+				<set-variable variableName="auditReason" value="File processed successfully" />
+				<flow-ref name="audit-log-subflow" />
+				<ee:transform>
+					<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{ message: "File processed successfully" }]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</otherwise>
+		</choice>
+	</flow>
+
+	<!-- ==== Task 10 : batch job ==== -->
+	<flow name="order-batch-flow">
+		<batch:job jobName="orderBatchJob" maxFailedRecords="-1" blockSize="100">
+			<batch:process-records>
+				<!-- Step 1: cleanse each record, then bulk insert / upsert 10 at a time -->
+				<batch:step name="cleanse-and-insert-step">
+					<flow-ref name="cleanse-record-subflow" />
+					<batch:aggregator size="10">
+						<!-- upsert without a UNIQUE key: update existing users first (payload is kept), -->
+						<db:bulk-update config-ref="MySQL_Config" target="updateCounts">
+							<db:sql>UPDATE customer_orders
+								SET order_timestamp = :orderTimestamp, order_status = :orderStatus, order_total = :orderTotal
+								WHERE user_id = :userId</db:sql>
+						</db:bulk-update>
+						<!-- then insert only the users that do not exist yet -->
+						<db:bulk-insert config-ref="MySQL_Config">
+							<db:sql>INSERT INTO customer_orders (user_id, order_timestamp, order_status, order_total)
+								SELECT :userId, :orderTimestamp, :orderStatus, :orderTotal FROM DUAL
+								WHERE NOT EXISTS (SELECT 1 FROM customer_orders WHERE user_id = :userId)</db:sql>
+						</db:bulk-insert>
+						<logger level="INFO" message="#['Committed ' ++ (sizeOf(payload) as String) ++ ' record(s)']" />
+					</batch:aggregator>
+				</batch:step>
+				<!-- Step 2: only receives records that failed in step 1 -->
+				<batch:step name="failed-record-step" acceptPolicy="ONLY_FAILURES">
+					<!-- masked id only: never log the raw user_id -->
+					<set-variable variableName="errUserId" value="#[vars.maskedUserId default '***']" />
+					<set-variable variableName="errMessage" value="Record failed in batch step" />
+					<logger level="ERROR" message="#['Record failed for user_id ' ++ vars.errUserId]" />
+					<flow-ref name="order-error-subflow" />
+				</batch:step>
+			</batch:process-records>
+			<batch:on-complete>
+				<ee:transform>
+					<ee:variables>
+						<ee:set-variable variableName="auditReason"><![CDATA[%dw 2.0
+output application/java
+---
+write({
+	fileName:         vars.auditName,
+	totalRecords:     payload.totalRecords,
+	successCount:     payload.successfulRecords,
+	failedCount:      payload.failedRecords,
+	processingTimeMs: payload.elapsedTimeInMillis
+}, "application/json")]]></ee:set-variable>
+						<ee:set-variable variableName="auditStatus"><![CDATA[%dw 2.0
+output application/java
+---
+if (payload.failedRecords == 0) "SUCCESS" else "FAILED"]]></ee:set-variable>
+					</ee:variables>
+				</ee:transform>
+				<flow-ref name="audit-log-subflow" />
+				<logger level="INFO" message="#['Batch complete: ' ++ vars.auditReason]" />
+			</batch:on-complete>
+		</batch:job>
+	</flow>
+
+	<!-- ================================================================= -->
+	<!-- 10. TASK 4 : SCHEDULED CUSTOMER JOB                                -->
+	<!--     TESTING: cron "0/30 * * * * ?", restore "0 30 1 * * ?"         -->
+	<!-- ================================================================= -->
+	<flow name="customer-batch-flow" maxConcurrency="1">
+		<scheduler>
+			<scheduling-strategy>
+				<cron expression="0 30 1 * * ?" />
+			</scheduling-strategy>
+		</scheduler>
+		<file:read config-ref="File_Config" path="input/customers.json" outputMimeType="application/json" />
+		<ee:transform>
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/java
+---
+payload]]></ee:set-payload>
+			</ee:message>
+			<ee:variables>
+				<ee:set-variable variableName="validRecords"><![CDATA[%dw 2.0
+import isValidCustomer from dwl::transformUtils
+output application/java
+---
+payload filter isValidCustomer($)]]></ee:set-variable>
+				<ee:set-variable variableName="invalidRecords"><![CDATA[%dw 2.0
+import isValidCustomer from dwl::transformUtils
+output application/java
+---
+payload filter not isValidCustomer($)]]></ee:set-variable>
+				<ee:set-variable variableName="idList"><![CDATA[%dw 2.0
+import isValidCustomer, customerIdList from dwl::transformUtils
+output application/java
+---
+customerIdList(payload filter isValidCustomer($))]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<logger level="INFO" message="#[&quot;Valid: $(sizeOf(vars.validRecords)), Invalid: $(sizeOf(vars.invalidRecords))&quot;]" />
+
+		<!-- invalid records -> error/invalid-customers.csv -->
+		<choice>
+			<when expression="#[sizeOf(vars.invalidRecords) &gt; 0]">
+				<ee:transform>
+					<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
+import invalidCustomersCsv from dwl::transformUtils
+output text/plain
+---
+invalidCustomersCsv(vars.invalidRecords)]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+				<file:write config-ref="File_Config" path="error/invalid-customers.csv" mode="OVERWRITE" createParentDirectories="true" />
+			</when>
+			<otherwise>
+				<logger level="INFO" message="No invalid records" />
+			</otherwise>
+		</choice>
+
+		<!-- valid records -> insert, select, enrich, update -->
+		<choice>
+			<when expression="#[sizeOf(vars.validRecords) &gt; 0]">
+				<!-- parallel INSERT (skips a user_id that already exists, so reruns don't duplicate) -->
+				<parallel-foreach collection="#[vars.validRecords]" maxConcurrency="4">
+					<db:insert config-ref="MySQL_Config">
+						<db:sql><![CDATA[INSERT INTO customer_info (user_id, first_name, last_name, salary)
+							SELECT :userId, :firstName, :lastName, :salary FROM DUAL
+							WHERE NOT EXISTS (SELECT 1 FROM customer_info WHERE user_id = :userId)]]></db:sql>
+						<db:input-parameters>#[{
+							userId:    payload.userId,
+							firstName: payload.firstName,
+							lastName:  payload.lastName,
+							salary:    payload.salary
+						}]</db:input-parameters>
+					</db:insert>
+				</parallel-foreach>
+				<!-- SELECT them back (runs only after all inserts finished) -->
+				<db:select config-ref="MySQL_Config">
+					<db:sql><![CDATA[#["SELECT id, user_id, first_name, last_name, salary FROM customer_info WHERE user_id IN (" ++ vars.idList ++ ") ORDER BY id"]]]></db:sql>
+				</db:select>
+				<logger level="INFO" message="#[&quot;Selected $(sizeOf(payload)) rows from customer_info&quot;]" />
+				<!-- parallel: backend call, then UPDATE -->
+				<parallel-foreach collection="#[payload]" maxConcurrency="4">
+					<try>
+						<set-variable variableName="row" value="#[payload]" />
+						<ee:transform>
+							<ee:variables>
+								<ee:set-variable variableName="backendRequest"><![CDATA[%dw 2.0
+import backendRequestFromRow from dwl::transformUtils
+output application/java
+---
+backendRequestFromRow(payload)]]></ee:set-variable>
+							</ee:variables>
+						</ee:transform>
+						<flow-ref name="backend-call-flow" />
+						<db:update config-ref="MySQL_Config">
+							<db:sql>UPDATE customer_info
+								SET full_name = :fullName, tier = :tier, tax = :tax,
+									total_tax = :totalTax, updated_at = CURRENT_TIMESTAMP
+								WHERE id = :id</db:sql>
+							<db:input-parameters>#[{
+								fullName: payload.fullName,
+								tier:     payload.tier,
+								tax:      payload.tax,
+								totalTax: payload.totalTax,
+								id:       vars.row.id
+							}]</db:input-parameters>
+						</db:update>
+						<error-handler>
+							<!-- one failed customer must not stop the others -->
+							<on-error-continue type="ANY">
+								<logger level="ERROR" message="#[&quot;Enrich failed for id $(vars.row.id default 'n/a'): $(error.description)&quot;]" />
+							</on-error-continue>
+						</error-handler>
+					</try>
+				</parallel-foreach>
+			</when>
+			<otherwise>
+				<logger level="INFO" message="No valid records to process" />
+			</otherwise>
+		</choice>
+		<logger level="INFO" message="Customer batch finished" />
+		<error-handler>
+			<on-error-continue type="FILE:ILLEGAL_PATH, FILE:FILE_DOESNT_EXIST">
+				<logger level="WARN" message="customers.json not found in input folder, nothing to process" />
+			</on-error-continue>
+			<on-error-propagate type="ANY">
+				<logger level="ERROR" message="#[&quot;Batch failed: $(error.errorType.identifier) - $(error.description)&quot;]" />
+			</on-error-propagate>
+		</error-handler>
+	</flow>
+</mule>

@@ -1,0 +1,7 @@
+{
+  "minMuleVersion": "4.12.0",
+  "domain": "assessment-domain",
+  "javaSpecificationVersions": [
+    "17"
+  ]
+}

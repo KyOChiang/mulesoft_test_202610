@@ -1,0 +1,141 @@
+{
+  "info": {
+    "_postman_id": "58689f63-8046-4a8c-aa4e-3bccc9f87caa",
+    "name": "Task 07 - Secure config smoke tests",
+    "description": "Proves the app starts with encrypted properties (DB password, keystore, backend credentials). The rest of Task 7 is a checklist in task07-secure-config.md.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "50632837",
+    "_collection_link": "https://go.postman.co/collection/50632837-58689f63-8046-4a8c-aa4e-3bccc9f87caa?source=collection_link"
+  },
+  "item": [
+    {
+      "name": "T7-01 Health",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"status 200\", () => pm.response.to.have.status(200));\npm.test(\"UP\", () => pm.expect(pm.response.json().status).to.eql(\"UP\"));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/integration/health",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "integration",
+            "health"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "T7-02 DB reachable (DB password decrypted)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"status 200\", () => pm.response.to.have.status(200));\npm.test(\"no records\", () => pm.expect(pm.response.json().message).to.eql(\"No records found for user_id: NOPE0001\"));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/integration/getOrders?user_id=NOPE0001",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "integration",
+            "getOrders"
+          ],
+          "query": [
+            {
+              "key": "user_id",
+              "value": "NOPE0001"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "T7-03 Backend reachable (client id/secret decrypted)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"status 200\", () => pm.response.to.have.status(200));\npm.test(\"mapped\", () => pm.expect(pm.response.json()).to.have.property(\"Full Name\"));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"User Id\": {{t7_uid}},\n  \"First Name\": \"Will\",\n  \"Last Name\": \"Smith\",\n  \"Current Salary\": 3600\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/integration/v1/recordsBackend",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "integration",
+            "v1",
+            "recordsBackend"
+          ]
+        },
+        "description": "A 502 here usually means the client id / secret decrypted wrongly."
+      },
+      "response": []
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "pm.collectionVariables.set(\"t7_uid\", Math.floor(Date.now() / 1000) % 1000000);"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "t7_uid",
+      "value": ""
+    }
+  ]
+}

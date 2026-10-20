@@ -1,0 +1,3 @@
+"user_id","order_timestamp","order_status","order_total"
+"NCS0001","12/02/2021 11:02:00 PM","Confirmed","1200"
+"NCS0002","12/02/2021 09:11:00 AM","Cancelled","2500"

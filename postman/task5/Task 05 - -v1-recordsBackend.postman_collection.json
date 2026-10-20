@@ -1,0 +1,287 @@
+{
+  "info": {
+    "_postman_id": "47f8a947-5365-489b-ad32-71594e7009d5",
+    "name": "Task 05 - /v1/recordsBackend",
+    "description": "Object Store check, backend call, 409 on repeated User Id.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "50632837",
+    "_collection_link": "https://go.postman.co/collection/50632837-47f8a947-5365-489b-ad32-71594e7009d5?source=collection_link"
+  },
+  "item": [
+    {
+      "name": "T5-01 New User Id returns 200 + mapped response",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"status 200\", () => pm.response.to.have.status(200));\nconst j = pm.response.json();\npm.test(\"mapped keys\", () => [\"User Id\",\"Full Name\",\"The Tier\",\"Tax Applied\",\"Total Tax\",\"Date\"].forEach(k => pm.expect(j).to.have.property(k)));\npm.test(\"Date is dd-MM-yyyy\", () => pm.expect(j.Date).to.match(/^\\d{2}-\\d{2}-\\d{4}$/));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"User Id\": 10,\n  \"First Name\": \"Will\",\n  \"Last Name\": \"Smith\",\n  \"Current Salary\": 1200\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/integration/v1/recordsBackend",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "integration",
+            "v1",
+            "recordsBackend"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "T5-02 Same User Id again returns 409",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"status 409\", () => pm.response.to.have.status(409));\npm.test(\"message\", () => pm.expect(pm.response.json()).to.eql({ error: \"User ID is already in use. Please use a different User ID.\" }));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"User Id\": {{t5_uid}},\n  \"First Name\": \"Will\",\n  \"Last Name\": \"Smith\",\n  \"Current Salary\": 1200\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/integration/v1/recordsBackend",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "integration",
+            "v1",
+            "recordsBackend"
+          ]
+        },
+        "description": "Run right after T5-01."
+      },
+      "response": []
+    },
+    {
+      "name": "T5-03 Different User Id returns 200",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"status 200\", () => pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"User Id\": {{$randomInt}},\n  \"First Name\": \"Will\",\n  \"Last Name\": \"Smith\",\n  \"Current Salary\": 1200\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/integration/v1/recordsBackend",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "integration",
+            "v1",
+            "recordsBackend"
+          ]
+        },
+        "description": "{{$randomInt}} is 0-1000; rerun if you hit an id used within the hour."
+      },
+      "response": []
+    },
+    {
+      "name": "T5-04 Missing field returns 400",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"status 400\", () => pm.response.to.have.status(400));\npm.test(\"error shape {error,message}\", () => pm.expect(pm.response.json()).to.have.keys(\"error\",\"message\"));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"User Id\": 9001,\n  \"First Name\": \"Will\",\n  \"Current Salary\": 1200\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/integration/v1/recordsBackend",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "integration",
+            "v1",
+            "recordsBackend"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "T5-05 Wrong type returns 400",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"status 400\", () => pm.response.to.have.status(400));\npm.test(\"error shape {error,message}\", () => pm.expect(pm.response.json()).to.have.keys(\"error\",\"message\"));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"User Id\": \"abc\",\n  \"First Name\": \"Will\",\n  \"Last Name\": \"Smith\",\n  \"Current Salary\": 1200\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/integration/v1/recordsBackend",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "integration",
+            "v1",
+            "recordsBackend"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "T5-06 Wrong method returns 405",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"status 405\", () => pm.response.to.have.status(405));\npm.test(\"error shape {error,message}\", () => pm.expect(pm.response.json()).to.have.keys(\"error\",\"message\"));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/integration/v1/recordsBackend",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "integration",
+            "v1",
+            "recordsBackend"
+          ]
+        }
+      },
+      "response": []
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "if (!pm.collectionVariables.get(\"t5_uid\")) pm.collectionVariables.set(\"t5_uid\", Math.floor(Date.now() / 1000) % 1000000);"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "t5_uid",
+      "value": ""
+    }
+  ]
+}

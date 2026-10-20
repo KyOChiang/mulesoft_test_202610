@@ -1,0 +1,391 @@
+{
+  "info": {
+    "_postman_id": "cde91162-1a90-4b3e-a1b5-3f5fb82e3297",
+    "name": "Task 11 - /recordsBackend reliability",
+    "description": "A = idempotency, B = retry, C = circuit breaker. B and C need a broken backend (see task11-recordsBackend-reliability.md).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "50632837",
+    "_collection_link": "https://go.postman.co/collection/50632837-cde91162-1a90-4b3e-a1b5-3f5fb82e3297?source=collection_link"
+  },
+  "item": [
+    {
+      "name": "A Idempotency",
+      "item": [
+        {
+          "name": "T11-A1 First call hits the backend",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));\npm.test(\"mapped keys\", () => [\"User Id\",\"Full Name\",\"The Tier\",\"Tax Applied\",\"Total Tax\",\"Date\"].forEach(k => pm.expect(pm.response.json()).to.have.property(k)));\npm.collectionVariables.set(\"t11_first\", pm.response.text());"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"User Id\": {{uid}},\n  \"First Name\": \"Will\",\n  \"Last Name\": \"Smith\",\n  \"Current Salary\": 1200\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/integration/recordsBackend",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "integration",
+                "recordsBackend"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "T11-A2 Same User Id returns the cached response",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"200 (not 409)\", () => pm.response.to.have.status(200));\npm.test(\"identical to first\", () => pm.expect(pm.response.text()).to.eql(pm.collectionVariables.get(\"t11_first\")));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"User Id\": {{uid}},\n  \"First Name\": \"Will\",\n  \"Last Name\": \"Smith\",\n  \"Current Salary\": 1200\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/integration/recordsBackend",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "integration",
+                "recordsBackend"
+              ]
+            },
+            "description": "Within 10 minutes of T11-A1. Log shows Idempotent replay and no backend call."
+          },
+          "response": []
+        },
+        {
+          "name": "T11-A4 Different User Id is a fresh call",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"User Id\": {{$randomInt}},\n  \"First Name\": \"Will\",\n  \"Last Name\": \"Smith\",\n  \"Current Salary\": 1200\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/integration/recordsBackend",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "integration",
+                "recordsBackend"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "T11-A5 Missing field returns 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 400\", () => pm.response.to.have.status(400));\npm.test(\"error shape {error,message}\", () => pm.expect(pm.response.json()).to.have.keys(\"error\",\"message\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"User Id\": 9001,\n  \"First Name\": \"Will\",\n  \"Current Salary\": 1200\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/integration/recordsBackend",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "integration",
+                "recordsBackend"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "B Retry (backend broken)",
+      "item": [
+        {
+          "name": "T11-B1 Retry 1s+2s+4s then 502",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set(\"uid_fail\", Math.floor(Date.now() / 1000) % 1000000);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"502\", () => pm.response.to.have.status(502));\npm.test(\"error\", () => pm.expect(pm.response.json().error).to.eql(\"Backend call failed\"));\npm.test(\"took about 7s\", () => pm.expect(pm.response.responseTime).to.be.within(6500, 12000));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"User Id\": {{uid_fail}},\n  \"First Name\": \"Will\",\n  \"Last Name\": \"Smith\",\n  \"Current Salary\": 1200\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/integration/recordsBackend",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "integration",
+                "recordsBackend"
+              ]
+            },
+            "description": "Set backend.host to an unreachable host and redeploy. Console: Backend attempt 1/2/3 failed."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "C Circuit breaker (backend broken)",
+      "item": [
+        {
+          "name": "T11-C4 Circuit open returns 503 fast",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set(\"uid_fail\", Math.floor(Date.now() / 1000) % 1000000);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"503\", () => pm.response.to.have.status(503));\npm.test(\"body\", () => pm.expect(pm.response.json()).to.eql({ error: \"Service temporarily unavailable. Please try again later.\" }));\npm.test(\"fails fast\", () => pm.expect(pm.response.responseTime).to.be.below(2000));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"User Id\": {{uid_fail}},\n  \"First Name\": \"Will\",\n  \"Last Name\": \"Smith\",\n  \"Current Salary\": 1200\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/integration/recordsBackend",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "integration",
+                "recordsBackend"
+              ]
+            },
+            "description": "Send 3 failing requests first (T11-B1 three times with new ids), then this one immediately."
+          },
+          "response": []
+        },
+        {
+          "name": "T11-C7 Probe after fix closes the circuit",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set(\"uid_fail\", Math.floor(Date.now() / 1000) % 1000000);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));\npm.test(\"mapped\", () => pm.expect(pm.response.json()).to.have.property(\"Full Name\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"User Id\": {{uid_fail}},\n  \"First Name\": \"Will\",\n  \"Last Name\": \"Smith\",\n  \"Current Salary\": 1200\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/integration/recordsBackend",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "integration",
+                "recordsBackend"
+              ]
+            },
+            "description": "Fix backend.host, redeploy, wait until 60 s after the circuit opened, then send."
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "if (!pm.collectionVariables.get(\"uid\")) pm.collectionVariables.set(\"uid\", Math.floor(Date.now() / 1000) % 1000000);"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "t11_first",
+      "value": ""
+    },
+    {
+      "key": "uid",
+      "value": ""
+    },
+    {
+      "key": "uid_fail",
+      "value": ""
+    }
+  ]
+}

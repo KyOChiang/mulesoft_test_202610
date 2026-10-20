@@ -1,0 +1,4 @@
+"user_id","order_timestamp","order_status","order_total"
+"AES45678","12/02/2021 11:02:00 PM","Confirmed","1200"
+"AES4 5679","12/02/2021 09:11:00 AM","Cancelled","2500"
+"AES45680","12/02/2021 06:02:00 PM","Confirmed","5100"

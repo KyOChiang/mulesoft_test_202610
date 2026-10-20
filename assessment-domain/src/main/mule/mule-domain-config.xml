@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<domain:mule-domain
+	xmlns:db="http://www.mulesoft.org/schema/mule/db"
+	xmlns:tls="http://www.mulesoft.org/schema/mule/tls"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:domain="http://www.mulesoft.org/schema/mule/ee/domain"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:secure-properties="http://www.mulesoft.org/schema/mule/secure-properties"
+	xsi:schemaLocation="
+	http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd 
+	http://www.mulesoft.org/schema/mule/tls http://www.mulesoft.org/schema/mule/tls/current/mule-tls.xsd 
+	http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd 
+	http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+	http://www.mulesoft.org/schema/mule/secure-properties http://www.mulesoft.org/schema/mule/secure-properties/current/mule-secure-properties.xsd
+	http://www.mulesoft.org/schema/mule/ee/domain http://www.mulesoft.org/schema/mule/ee/domain/current/mule-domain-ee.xsd">
+	<!-- configure here resource to be shared within the domain -->
+	<configuration-properties file="${env}.yaml" />
+
+	<secure-properties:config name="Secure_Props" file="${env}.yaml" key="${encryption.key}">
+	<!--  AES/CBC is default -->
+    	<secure-properties:encrypt useRandomIVs="true"/>
+	</secure-properties:config>
+
+	<http:listener-config name="HTTPS_Listener_config" doc:name="HTTPS Listener">
+		<http:listener-connection
+			host="0.0.0.0"
+			port="8083"
+			protocol="HTTPS">
+			<tls:context>
+				<tls:key-store
+					type="jks"
+					path="keystore.jks"
+					alias="mule"
+					keyPassword="${secure::keystore.keyPassword}"
+					password="${secure::keystore.password}" />
+			</tls:context>
+		</http:listener-connection>
+	</http:listener-config>
+
+	<db:config name="MySQL_Config" doc:name="Database Config">
+		<!-- Use generic-connection instead of my-sql-connection -->
+		<db:generic-connection 
+			url="jdbc:mysql://${db.host}:${db.port}/${db.name}" 
+			driverClassName="com.mysql.cj.jdbc.Driver" 
+			user="${db.user}" 
+			password="${secure::db.password}">
+		</db:generic-connection>
+	</db:config>
+
+	<http:request-config name="Backend_Request_Config" basePath="${backend.basePath}">
+		<http:request-connection host="${backend.host}" port="${backend.port}" protocol="HTTP"/>
+		<http:default-headers>
+			<http:default-header key="client_id" value="${secure::backend.clientId}"/>
+			<http:default-header key="client_secret" value="${secure::backend.clientSecret}"/>
+		</http:default-headers>
+	</http:request-config>
+</domain:mule-domain>

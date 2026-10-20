@@ -1,0 +1,12 @@
+[
+  { "userId": 1, "firstName": "Will",   "lastName": "Smith",  "salary": 2000,   "status": "Valid" },
+  { "userId": 2, "firstName": "Jane",   "lastName": "Smith",  "salary": 12000,  "status": "Valid" },
+  { "userId": 3, "firstName": "Jane",   "lastName": "Doe",    "salary": 2000,   "status": "Not Valid" },
+  { "userId": 4, "firstName": "Mickey", "lastName": "Mouse",  "salary": 120000, "status": "Valid" },
+  { "userId": 5, "firstName": "Muthu",  "lastName": "Robert", "salary": -0.1,   "status": "Error" },
+  { "userId": 6, "firstName": "Jill",   "lastName": "Snith",  "salary": 3500,   "status": "Valid" },
+  { "userId": 7, "firstName": "Sane",   "lastName": "Snith",  "salary": -12000,  "status": "Valid" },
+  { "userId": 8, "firstName": "Dane",   "lastName": "Poe",    "salary": 2655,   "status": "Not Valid" },
+  { "userId": 9, "firstName": "Lickey", "lastName": "Pouse",  "salary": 120344, "status": "Valid" },
+  { "userId": 10, "firstName": "Futhu",  "lastName": "Kobert", "salary": -0.123,   "status": "Error" }
+]

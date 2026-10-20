@@ -1,0 +1,18 @@
+keystore:
+  password: "![01vq1/yCSELIlY0ZA7u4kHKtM4h0kTB99inRKJ/zKI8=]"
+  keyPassword: "![01vq1/yCSELIlY0ZA7u4kHKtM4h0kTB99inRKJ/zKI8=]"
+
+db:
+  host: "localhost"
+  port: "3306"
+  name: "mulesoft_training_prod"
+  user: "root"
+  password: "![rJggwjm3CGllmAxbm4mlvhjZ7yfUsJG1y2my285ScyQ=]"
+backend:
+  host: "mockuserinfo.sg-s1.cloudhub.io"
+  port: "80"
+  basePath: "/api"
+  clientId: "![LF3YT5XHtBugkaYvWjISIzbpyWnzyWWs50hmvBAd31YI+EXsuXtXYDPsKgRRKTBBvQ1ihTIeYzepRFTnLQlUeA==]"
+  clientSecret: "![M9U/dmhsJqujzTKu0Zv/U+9bXHEgf/5MOHHX8MdpsGzvKd/6MiYd2Y4TIL8IJZ3y5OWH7t+84aJNRvMVWqx3SQ==]"
+app:
+  envn: prod

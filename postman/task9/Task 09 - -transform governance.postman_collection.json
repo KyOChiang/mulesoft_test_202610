@@ -1,0 +1,635 @@
+{
+  "info": {
+    "_postman_id": "3f656456-88de-4986-b245-a674940cae22",
+    "name": "Task 09 - /transform governance",
+    "description": "A = schema validation, B = cache, C = rate limit. Run C alone in the Collection Runner with rateLimitPerMinute=3 (it counts every request in the same minute).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "50632837",
+    "_collection_link": "https://go.postman.co/collection/50632837-3f656456-88de-4986-b245-a674940cae22?source=collection_link"
+  },
+  "item": [
+    {
+      "name": "A Schema validation",
+      "item": [
+        {
+          "name": "T9-A1 Missing firstName",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 400\", () => pm.response.to.have.status(400));\npm.test(\"error shape {error,message}\", () => pm.expect(pm.response.json()).to.have.keys(\"error\",\"message\"));\npm.test(\"not rate limited\", () => pm.expect(pm.response.headers.has(\"Retry-After\")).to.be.false);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"lastName\": \"Doe\",\n  \"address\": \"Bangsar, Kuala Lumpur\",\n  \"poscode\": \"59100\",\n  \"orgnFormRefId\": 45.678,\n  \"originationType\": \"CORP\",\n  \"customerType\": \"F\",\n  \"sourceSystemId\": \"C201\",\n  \"partyAcctRelationship\": \"OWNER\",\n  \"orders\": [\n    {\n      \"orderId\": \"A01\",\n      \"amount\": 200\n    },\n    {\n      \"orderId\": \"A02\",\n      \"amount\": 100\n    }\n  ],\n  \"responseType\": \"JSON\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/integration/transform",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "integration",
+                "transform"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "T9-A2 Missing orders",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 400\", () => pm.response.to.have.status(400));\npm.test(\"error shape {error,message}\", () => pm.expect(pm.response.json()).to.have.keys(\"error\",\"message\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Jane\",\n  \"lastName\": \"Doe\",\n  \"address\": \"Bangsar, Kuala Lumpur\",\n  \"poscode\": \"59100\",\n  \"orgnFormRefId\": 45.678,\n  \"originationType\": \"CORP\",\n  \"customerType\": \"F\",\n  \"sourceSystemId\": \"C201\",\n  \"partyAcctRelationship\": \"OWNER\",\n  \"responseType\": \"JSON\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/integration/transform",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "integration",
+                "transform"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "T9-A3 Bad originationType",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 400\", () => pm.response.to.have.status(400));\npm.test(\"error shape {error,message}\", () => pm.expect(pm.response.json()).to.have.keys(\"error\",\"message\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Jane\",\n  \"lastName\": \"Doe\",\n  \"address\": \"Bangsar, Kuala Lumpur\",\n  \"poscode\": \"59100\",\n  \"orgnFormRefId\": 45.678,\n  \"originationType\": \"XXXX\",\n  \"customerType\": \"F\",\n  \"sourceSystemId\": \"C201\",\n  \"partyAcctRelationship\": \"OWNER\",\n  \"orders\": [\n    {\n      \"orderId\": \"A01\",\n      \"amount\": 200\n    },\n    {\n      \"orderId\": \"A02\",\n      \"amount\": 100\n    }\n  ],\n  \"responseType\": \"JSON\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/integration/transform",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "integration",
+                "transform"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "T9-A4 orgnFormRefId as string",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 400\", () => pm.response.to.have.status(400));\npm.test(\"error shape {error,message}\", () => pm.expect(pm.response.json()).to.have.keys(\"error\",\"message\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Jane\",\n  \"lastName\": \"Doe\",\n  \"address\": \"Bangsar, Kuala Lumpur\",\n  \"poscode\": \"59100\",\n  \"orgnFormRefId\": \"45\",\n  \"originationType\": \"CORP\",\n  \"customerType\": \"F\",\n  \"sourceSystemId\": \"C201\",\n  \"partyAcctRelationship\": \"OWNER\",\n  \"orders\": [\n    {\n      \"orderId\": \"A01\",\n      \"amount\": 200\n    },\n    {\n      \"orderId\": \"A02\",\n      \"amount\": 100\n    }\n  ],\n  \"responseType\": \"JSON\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/integration/transform",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "integration",
+                "transform"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "T9-A5 Order without amount",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 400\", () => pm.response.to.have.status(400));\npm.test(\"error shape {error,message}\", () => pm.expect(pm.response.json()).to.have.keys(\"error\",\"message\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Jane\",\n  \"lastName\": \"Doe\",\n  \"address\": \"Bangsar, Kuala Lumpur\",\n  \"poscode\": \"59100\",\n  \"orgnFormRefId\": 45.678,\n  \"originationType\": \"CORP\",\n  \"customerType\": \"F\",\n  \"sourceSystemId\": \"C201\",\n  \"partyAcctRelationship\": \"OWNER\",\n  \"orders\": [\n    {\n      \"orderId\": \"A01\"\n    }\n  ],\n  \"responseType\": \"JSON\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/integration/transform",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "integration",
+                "transform"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "T9-A6 responseType omitted is OK",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));\npm.test(\"JSON\", () => pm.response.to.have.header(\"Content-Type\", /json/));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Jane\",\n  \"lastName\": \"Doe\",\n  \"address\": \"Bangsar, Kuala Lumpur\",\n  \"poscode\": \"59100\",\n  \"orgnFormRefId\": 45.678,\n  \"originationType\": \"CORP\",\n  \"customerType\": \"F\",\n  \"sourceSystemId\": \"C9A6\",\n  \"partyAcctRelationship\": \"OWNER\",\n  \"orders\": [\n    {\n      \"orderId\": \"A01\",\n      \"amount\": 200\n    },\n    {\n      \"orderId\": \"A02\",\n      \"amount\": 100\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/integration/transform",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "integration",
+                "transform"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "T9-A7 Not JSON returns 415",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 415\", () => pm.response.to.have.status(415));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "text/plain"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "hello",
+              "options": {
+                "raw": {
+                  "language": "text"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/integration/transform",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "integration",
+                "transform"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "B Cache",
+      "item": [
+        {
+          "name": "T9-B1 First call is MISS",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set(\"t9_key\", \"CACHE-\" + Date.now());\npm.collectionVariables.set(\"t9_body\", JSON.stringify(Object.assign({\"firstName\": \"Jane\", \"lastName\": \"Doe\", \"address\": \"Bangsar, Kuala Lumpur\", \"poscode\": \"59100\", \"orgnFormRefId\": 45.678, \"originationType\": \"CORP\", \"customerType\": \"F\", \"sourceSystemId\": \"C201\", \"partyAcctRelationship\": \"OWNER\", \"orders\": [{\"orderId\": \"A01\", \"amount\": 200}, {\"orderId\": \"A02\", \"amount\": 100}], \"responseType\": \"JSON\"}, { sourceSystemId: pm.collectionVariables.get(\"t9_key\") })));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"MISS\", () => pm.response.to.have.header(\"X-Cache\", \"MISS\"));\npm.test(\"200\", () => pm.response.to.have.status(200));\npm.collectionVariables.set(\"t9_processedAt\", pm.response.json().metadata.processedAt);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{{t9_body}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/integration/transform",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "integration",
+                "transform"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "T9-B2 Same body is HIT with same content",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HIT\", () => pm.response.to.have.header(\"X-Cache\", \"HIT\"));\npm.test(\"same processedAt\", () => pm.expect(pm.response.json().metadata.processedAt).to.eql(pm.collectionVariables.get(\"t9_processedAt\")));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{{t9_body}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/integration/transform",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "integration",
+                "transform"
+              ]
+            },
+            "description": "Run right after T9-B1 (cache TTL is 5 minutes)."
+          },
+          "response": []
+        },
+        {
+          "name": "T9-B3 Changed field is MISS",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set(\"t9_body_changed\", JSON.stringify(Object.assign(JSON.parse(pm.collectionVariables.get(\"t9_body\")), { lastName: \"Smith\" })));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"MISS\", () => pm.response.to.have.header(\"X-Cache\", \"MISS\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{{t9_body_changed}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/integration/transform",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "integration",
+                "transform"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "T9-B4 XML is cached separately (first call MISS)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set(\"t9_body_xml\", JSON.stringify(Object.assign(JSON.parse(pm.collectionVariables.get(\"t9_body\")), { responseType: \"XML\" })));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"MISS\", () => pm.response.to.have.header(\"X-Cache\", \"MISS\"));\npm.test(\"xml\", () => pm.response.to.have.header(\"Content-Type\", /xml/));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{{t9_body_xml}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/integration/transform",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "integration",
+                "transform"
+              ]
+            },
+            "description": "Send twice: the second call should be HIT."
+          },
+          "response": []
+        },
+        {
+          "name": "T9-B5 change key order still hit the cache",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"orgnFormRefId\": 45.678,\r\n    \"originationType\": \"CORP\",\r\n    \"customerType\": \"F\",\r\n    \"sourceSystemId\": \"CACHE-1792386880889\",\r\n    \"partyAcctRelationship\": \"OWNER\",\r\n    \"orders\": [\r\n        {\"orderId\": \"A01\", \"amount\": 200},\r\n        {\"orderId\": \"A02\", \"amount\": 100}\r\n    ],\r\n    \"responseType\": \"XML\",\r\n    \"lastName\": \"KKKDoe\",\r\n    \"address\": \"Bangsar, Kuala Lumpur\",\r\n    \"firstName\": \"KKKJane\",\r\n    \"poscode\": \"59100\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/integration/transform",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "integration",
+                "transform"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "C Rate limit",
+      "item": [
+        {
+          "name": "T9-C1 Burst (Collection Runner, 4 iterations, delay 0)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const it = pm.info.iteration + 1;\nif (it <= 3) {\n  pm.test(\"allowed #\" + it, () => pm.response.to.have.status(200));\n} else {\n  pm.test(\"429 on #\" + it, () => pm.response.to.have.status(429));\n  pm.test(\"body\", () => pm.expect(pm.response.json()).to.eql({ error: \"Rate limit exceeded\", retryAfter: 60 }));\n  pm.test(\"Retry-After header\", () => pm.response.to.have.header(\"Retry-After\", \"60\"));\n}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Jane\",\n  \"lastName\": \"Doe\",\n  \"address\": \"Bangsar, Kuala Lumpur\",\n  \"poscode\": \"59100\",\n  \"orgnFormRefId\": 45.678,\n  \"originationType\": \"CORP\",\n  \"customerType\": \"F\",\n  \"sourceSystemId\": \"RATE\",\n  \"partyAcctRelationship\": \"OWNER\",\n  \"orders\": [\n    {\n      \"orderId\": \"A01\",\n      \"amount\": 200\n    },\n    {\n      \"orderId\": \"A02\",\n      \"amount\": 100\n    }\n  ],\n  \"responseType\": \"JSON\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/integration/transform",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "integration",
+                "transform"
+              ]
+            },
+            "description": "Set global property rateLimitPerMinute to 3 and redeploy. Restore to 100 after. Counting is before the cache, so HITs count too."
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "t9_body",
+      "value": ""
+    },
+    {
+      "key": "t9_body_changed",
+      "value": ""
+    },
+    {
+      "key": "t9_body_xml",
+      "value": ""
+    },
+    {
+      "key": "t9_key",
+      "value": ""
+    },
+    {
+      "key": "t9_processedAt",
+      "value": ""
+    }
+  ]
+}

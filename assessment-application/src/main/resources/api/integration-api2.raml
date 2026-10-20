@@ -1,0 +1,530 @@
+#%RAML 1.0
+title: Integration API
+version: v1
+baseUri: https://127.0.0.1:8083/api/integration
+mediaType: application/json
+
+traits:
+  errorable:
+    responses:
+      400:
+        body:
+          application/json:
+            example:
+              {
+                "error": "Bad request",
+                "message": "Invalid input"
+              }
+      500:
+        body:
+          application/json:
+            example:
+              {
+                "error": "Internal server error",
+                "message": "Unexpected error"
+              }
+
+types:
+
+  RateLimitError:
+    type: object
+    properties:
+      error: string
+      retryAfter: integer
+
+  Order:
+    type: object
+    properties:
+      orderId: string
+      amount: number
+
+  TransformRequest:
+    type: object
+    properties:
+      firstName: string
+      lastName: string
+      address: string
+      poscode: string
+      orgnFormRefId: number
+      originationType:
+        type: string
+        enum: [INDV, CORP]
+      customerType:
+        type: string
+        enum: [M, F]
+      sourceSystemId: string
+      partyAcctRelationship: string
+      orders: Order[]
+      responseType:
+        type: string
+        enum: [JSON, XML]
+        required: false
+
+  OrderLenient:
+    type: object
+    properties:
+      orderId?: string | nil
+      amount?: number | nil
+
+  # Task 6 (/v2/transform): every field optional and nullable.
+  # Null safety is handled in the DataWeave module, so missing/null gives null in the output, not a 400.
+  TransformRequestLenient:
+    type: object
+    properties:
+      firstName?: string | nil
+      lastName?: string | nil
+      address?: string | nil
+      poscode?: string | nil
+      orgnFormRefId?: number | nil
+      originationType?: string | nil
+      customerType?: string | nil
+      sourceSystemId?: string | nil
+      partyAcctRelationship?: string | nil
+      orders?: OrderLenient[] | nil
+      responseType?: string | nil
+
+  Metadata:
+    type: object
+    properties:
+      processedAt: string
+      version: string
+
+  TransformData:
+    type: object
+    properties:
+      fullName: string | nil
+      fullAddress: string | nil
+      "orgnFormRefId-1": integer | nil
+      "originationType-1": string | nil
+      "customerType-1": string | nil
+      sourcePartyAcct: string | nil
+      customerId: string | nil
+      totalOrders: integer | nil
+      totalAmounts: number | nil
+      allOrdersIds: string[] | nil
+
+  TransformResponse:
+    type: object
+    properties:
+      metadata: Metadata
+      data: TransformData
+
+  InsertOrderRequest:
+    type: object
+    properties:
+      userId: string
+      orderTimestamp: string
+      orderStatus: string
+      orderTotal: number
+
+  InsertOrderResponse:
+    type: object
+    properties:
+      message: string
+      userId: string
+      orderStatus: string
+      orderTotal: number
+
+  RecordsBackendRequest:
+    type: object
+    properties:
+      "User Id": integer
+      "First Name": string
+      "Last Name": string
+      "Current Salary": number
+
+  RecordsBackendResponse:
+    type: object
+    properties:
+      "User Id": integer
+      "Full Name": string
+      "The Tier": string
+      "Tax Applied": number
+      "Total Tax": number
+      "Date": string
+
+  ConflictError:
+    type: object
+    properties:
+      error: string
+
+  HealthResponse:
+    type: object
+    properties:
+      status: string
+      uptime: number
+
+/v1/transform:
+  post:
+    is: [errorable]
+    description: Transform and enrich customer JSON data - Task1
+
+    body:
+      application/json:
+        type: TransformRequest
+        example:
+          {
+            "firstName": "Jane",
+            "lastName": "Doe",
+            "address": "Bangsar, Kuala Lumpur",
+            "poscode": "59100",
+            "orgnFormRefId": 45.678,
+            "originationType": "CORP",
+            "customerType": "F",
+            "sourceSystemId": "C201",
+            "partyAcctRelationship": "OWNER",
+            "orders": [
+              {
+                "orderId": "A01",
+                "amount": 200
+              },
+              {
+                "orderId": "A02",
+                "amount": 100
+              }
+            ],
+            "responseType": "JSON"
+          }
+
+    responses:
+      200:
+        body:
+          application/json:
+            type: TransformData
+            example:
+              {
+                "fullName": "Jane Doe",
+                "fullAddress": "Bangsar, Kuala Lumpur, 59100",
+                "orgnFormRefId-1": 45,
+                "originationType-1": "CORPORATE",
+                "customerType-1": "Female",
+                "sourcePartyAcct": "C201-OWNER",
+                "customerId": "FC201CORP",
+                "totalOrders": 2,
+                "totalAmounts": 300,
+                "allOrdersIds": ["A01", "A02"]
+              }
+          application/xml:
+            example: |
+              <customer:customerData xmlns:customer="http://acme.com/customer">
+              </customer:customerData>
+
+/v2/transform:
+  post:
+    is: [errorable]
+    description: Task 6 - metadata envelope, XML namespace, null-safe (missing/null fields give null). No rate limit, no cache
+
+    body:
+      application/json:
+        type: TransformRequestLenient
+        example:
+          {
+            "firstName": "Jane",
+            "lastName": "Doe",
+            "address": "Bangsar, Kuala Lumpur",
+            "poscode": "59100",
+            "orgnFormRefId": 45.678,
+            "originationType": "CORP",
+            "customerType": "F",
+            "sourceSystemId": "C201",
+            "partyAcctRelationship": "OWNER",
+            "orders": [
+              {
+                "orderId": "A01",
+                "amount": 200
+              },
+              {
+                "orderId": "A02",
+                "amount": 100
+              }
+            ],
+            "responseType": "JSON"
+          }
+
+    responses:
+      200:
+        body:
+          application/json:
+            type: TransformResponse
+            example:
+              {
+                "metadata": { "processedAt": "2026-05-26T10:00:00Z", "version": "1.0" },
+                "data": {
+                  "fullName": "Jane Doe",
+                  "fullAddress": "Bangsar, Kuala Lumpur, 59100",
+                  "orgnFormRefId-1": 45,
+                  "originationType-1": "CORPORATE",
+                  "customerType-1": "Female",
+                  "sourcePartyAcct": "C201-OWNER",
+                  "customerId": "FC201CORP",
+                  "totalOrders": 2,
+                  "totalAmounts": 300,
+                  "allOrdersIds": ["A01", "A02"]
+                }
+              }
+          application/xml:
+            example: |
+              <customer:customerData xmlns:customer="http://acme.com/customer">
+                <customer:metadata>
+                  <customer:processedAt>2026-05-26T10:00:00Z</customer:processedAt>
+                  <customer:version>1.0</customer:version>
+                </customer:metadata>
+                <customer:data>
+                  <customer:fullName>Jane Doe</customer:fullName>
+                </customer:data>
+              </customer:customerData>
+
+/transform:
+  post:
+    is: [errorable]
+    description: Transform and enrich customer JSON data
+
+    body:
+      application/json:
+        type: TransformRequest
+        example:
+          {
+            "firstName": "Jane",
+            "lastName": "Doe",
+            "address": "Bangsar, Kuala Lumpur",
+            "poscode": "59100",
+            "orgnFormRefId": 45.678,
+            "originationType": "CORP",
+            "customerType": "F",
+            "sourceSystemId": "C201",
+            "partyAcctRelationship": "OWNER",
+            "orders": [
+              {
+                "orderId": "A01",
+                "amount": 200
+              },
+              {
+                "orderId": "A02",
+                "amount": 100
+              }
+            ],
+            "responseType": "JSON"
+          }
+
+    responses:
+      200:
+        headers:
+          X-Cache:
+            type: string
+            enum: [HIT, MISS]
+        body:
+          application/json:
+            type: TransformResponse
+            example:
+              {
+                "metadata": { "processedAt": "2026-05-26T10:00:00Z", "version": "1.0" },
+                "data": {
+                  "fullName": "Jane Doe",
+                  "fullAddress": "Bangsar, Kuala Lumpur, 59100",
+                  "orgnFormRefId-1": 45,
+                  "originationType-1": "CORPORATE",
+                  "customerType-1": "Female",
+                  "sourcePartyAcct": "C201-OWNER",
+                  "customerId": "FC201CORP",
+                  "totalOrders": 2,
+                  "totalAmounts": 300,
+                  "allOrdersIds": ["A01", "A02"]
+                }
+              }
+          application/xml:
+            example: |
+              <customer:customerData xmlns:customer="http://acme.com/customer">
+                <customer:metadata>
+                  <customer:processedAt>2026-05-26T10:00:00Z</customer:processedAt>
+                  <customer:version>1.0</customer:version>
+                </customer:metadata>
+                <customer:data>
+                  <customer:fullName>Jane Doe</customer:fullName>
+                </customer:data>
+              </customer:customerData>
+      429:
+        headers:
+          Retry-After:
+            type: integer
+        body:
+          application/json:
+            type: RateLimitError
+            example: { "error": "Rate limit exceeded", "retryAfter": 60 }
+
+/v1/insertOrders:
+  post:
+    is: [errorable]
+    description: Insert customer order information into the database
+
+    queryParameters:
+      filename:
+        type: string
+        example: order.csv
+
+    responses:
+      200:
+        body:
+          application/json:
+            type: object
+            example:
+              {"message": "File processed successfully"}
+
+/v2/insertOrders:
+  post:
+    is: [errorable]
+    description: Task 8 - masked ids, upsert, processing summary
+
+    queryParameters:
+      filename:
+        type: string
+        example: orders.csv
+
+    responses:
+      200:
+        body:
+          application/json:
+            type: object
+            example:
+              {
+                "fileName": "ord*****sv",
+                "processed": 3,
+                "inserted": 2,
+                "updated": 1,
+                "failed": 0,
+                "status": "SUCCESS"
+              }
+
+/insertOrders:
+  post:
+    is: [errorable]
+    description: Task 10 - submit the CSV as a Batch Job (commit size 10)
+
+    queryParameters:
+      filename:
+        type: string
+        example: orders.csv
+
+    responses:
+      200:
+        body:
+          application/json:
+            type: object
+            example:
+              { "message": "Batch job submitted", "batchJobId": "7c1d3f60-0000-0000-0000-000000000000" }
+
+/getOrders:
+  get:
+    is: [errorable]
+    description: Query orders by user_id
+
+    queryParameters:
+      user_id:
+        type: string
+        required: true
+        minLength: 1
+        example: "10001"
+
+    responses:
+      200:
+        body:
+          application/json:
+            type: object
+            example:
+              {
+                "user_id": "AES45678",
+                "orders": [
+                  {
+                    "order_timestamp": "2021-02-12T23:02:00Z",
+                    "order_status": "Confirmed",
+                    "order_total": 1200
+                  }
+                ]
+              }
+
+/v1/recordsBackend:
+  post:
+    is: [errorable]
+    description: Check the User Id, call the backend, store the id (TTL 1 hour), return the mapped result
+
+    body:
+      application/json:
+        type: RecordsBackendRequest
+        example:
+          {
+            "User Id": 1,
+            "First Name": "Will",
+            "Last Name": "Smith",
+            "Current Salary": 1200
+          }
+
+    responses:
+      200:
+        body:
+          application/json:
+            type: RecordsBackendResponse
+            example:
+              {
+                "User Id": 4,
+                "Full Name": "WILL PREMIUM ",
+                "The Tier": "PREMIUM",
+                "Tax Applied": 0.8,
+                "Total Tax": 276.536,
+                "Date": "26-05-2026"
+              }
+      409:
+        body:
+          application/json:
+            type: ConflictError
+            example:
+              { "error": "User ID is already in use. Please use a different User ID." }
+
+/recordsBackend:
+  post:
+    is: [errorable]
+    description: Task 11 - idempotency (10 min), circuit breaker, retry 1s/2s/4s, return the mapped result
+
+    body:
+      application/json:
+        type: RecordsBackendRequest
+        example:
+          {
+            "User Id": 1,
+            "First Name": "Will",
+            "Last Name": "Smith",
+            "Current Salary": 1200
+          }
+
+    responses:
+      200:
+        body:
+          application/json:
+            type: RecordsBackendResponse
+            example:
+              {
+                "User Id": 4,
+                "Full Name": "WILL PREMIUM ",
+                "The Tier": "PREMIUM",
+                "Tax Applied": 0.8,
+                "Total Tax": 276.536,
+                "Date": "26-05-2026"
+              }
+      503:
+        body:
+          application/json:
+            example:
+              { "error": "Service temporarily unavailable. Please try again later." }
+
+/health:
+  get:
+    description: Returns API health status and application uptime
+
+    responses:
+      200:
+        body:
+          application/json:
+            type: HealthResponse
+            example:
+              {
+                "status": "UP",
+                "uptime": 12345
+              }
