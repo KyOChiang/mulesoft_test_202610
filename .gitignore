@@ -14,7 +14,7 @@
 #**/.settings/
 
 # Secrets: never commit these
-**/*.jks
+#**/*.jks
 **/*.p12
 **/*.pfx
 **/*key*.txt
